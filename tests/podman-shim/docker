@@ -1,0 +1,7 @@
+#!/bin/sh
+# Makes `docker` resolve to podman for the T6 CI job, without touching the
+# system's real Docker install (podman-docker's package conflicts with
+# docker-ce-cli on GitHub's runners). Prepend this directory to PATH.
+# tutorial.sh and the test scripts all hardcode `docker` -- fase 2 adds
+# real runtime detection there.
+exec podman "$@"

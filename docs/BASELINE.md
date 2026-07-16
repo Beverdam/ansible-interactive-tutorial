@@ -114,8 +114,10 @@ Since this is a CLI environment without full PTY/interactive terminal support, t
 - ✅ Known issues inventoried; shellcheck findings concrete
 - ✅ Images cached locally (podman) — ready for CI jobs to pull
 
-**Next:** Build GitHub Actions workflow (`.github/workflows/test.yml`) that:
-- Pulls `turkenh/*:1.1` prebuilt baseline images
-- Implements T1–T7 smoke tests
-- Marks known-broken tests as expected-fail (issues #12, #22, #25, #37, #32, #39)
-- Provides the vangnet for all future modernization phases
+**Fase 1 is complete — see `docs/FASE1.md`.** It documents the full
+testsuite (T1–T4, T6, T7), the fixed T7 idempotency scope, and several
+concrete findings from running the suite locally that update assumptions
+made here in fase 0 — most notably that T4 (the PTY test) passes against
+`turkenh/ansible-tutorial:1.1` for #12/#22/#37, contradicting the
+"reproduced on 1.1" assessment below. Treat the "Known Issues in Baseline"
+table above as the fase-0 snapshot; `docs/FASE1.md` has the current status.

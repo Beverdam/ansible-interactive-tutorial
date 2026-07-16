@@ -1,0 +1,135 @@
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Fase 1 (see PLAN.md §3a): the smoke-test suite runs against the pulled
+# `turkenh/*:1.1` baseline images, not `docker build` -- those Dockerfiles
+# don't build anymore (see docs/BASELINE.md). Building locally starts in
+# fase 2. Some jobs are `continue-on-error: true`; each is a documented
+# reproduction of a known issue or a fase-1 finding, not flakiness -- see
+# the comment on each job and docs/BASELINE.md for the full inventory.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck tutorial.sh
+        continue-on-error: true # fixed in fase 2, see docs/BASELINE.md
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck tutorial.sh
+      - name: hadolint Dockerfiles
+        continue-on-error: true # fixed in fase 2, see docs/BASELINE.md
+        run: |
+          docker run --rm -v "${PWD}:/work" -w /work hadolint/hadolint \
+            hadolint images/ubuntu-1604-ansible-docker-host/Dockerfile images/ansible-tutorial/Dockerfile
+
+  t1-lessons:
+    name: t1 (${{ matrix.lesson }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lesson:
+          - 0-step-00
+          - 1-step-01
+          - 2-step-02
+          - 3-step-03
+          - 4-step-04
+          - 5-step-05
+          - 6-step-06
+          - 7-step-07
+          - 8-step-08
+          - 9-step-09
+          - 10-step-10
+          - 11-step-11
+          - 12-step-12
+          - 13-step-13
+          - 14-freeplay
+    steps:
+      - uses: actions/checkout@v4
+      - name: nutsh test -- ${{ matrix.lesson }}
+        # 13-step-13 is lesson 14 (Jenkins): expected-fail, see #32/#39.
+        continue-on-error: ${{ matrix.lesson == '13-step-13' }}
+        env:
+          LESSON_NAME: ${{ matrix.lesson }}
+        run: ./tutorial.sh -t
+      - name: cleanup
+        if: always()
+        run: ./tutorial.sh --remove
+
+  t2-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tests/t2_lifecycle.sh
+
+  t3-checkpoints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: apache checkpoint (lesson 5)
+        # Expected-fail at baseline (fase 1 finding, not one of the 9
+        # tracked issues): files/step-4/apache.yml only installs the
+        # apache2 package, it never starts the service, and this
+        # particular base image's /start.sh doesn't run a real init that
+        # would auto-start it either. Fix in fase 4 alongside the T7
+        # idempotency cleanup. See docs/BASELINE.md.
+        continue-on-error: true
+        run: ./tests/t3_checkpoints.sh apache
+      - name: jenkins checkpoint (lesson 14)
+        continue-on-error: true # expected-fail, see #32/#39
+        run: ./tests/t3_checkpoints.sh jenkins
+
+  t7-idempotency:
+    runs-on: ubuntu-latest
+    # Expected partially red at baseline: the apache playbooks use
+    # `command:` tasks (a2ensite/a2dissite/apache2ctl configtest) with no
+    # `changed_when`, so ansible reports `changed` every run regardless of
+    # actual state. haproxy-only and the two simplest apache lessons are
+    # genuinely idempotent already. Fix (add changed_when/creates) is fase
+    # 4 work. See docs/BASELINE.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tests/t7_idempotency.sh
+
+  t4-pty:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tests/env.sh up
+      - run: python3 tests/t4_pty.py
+      - name: cleanup
+        if: always()
+        run: ./tests/env.sh down
+
+  t6-podman:
+    runs-on: ubuntu-latest
+    # Expected red: reproduces #33. `docker network inspect --format`
+    # relies on a `.Containers.*.IPv4Address` field that podman's Go
+    # template output doesn't have (empty ansible_host in generated
+    # inventories), and fping reports all hosts unreachable under podman's
+    # rootless networking. Fixed in fase 2. See docs/BASELINE.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: install podman
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: shim docker -> podman
+        run: echo "${GITHUB_WORKSPACE}/tests/podman-shim" >> "${GITHUB_PATH}"
+      - run: ./tutorial.sh --remove
+      - name: t1 smoke (lesson 0)
+        env:
+          LESSON_NAME: 0-step-00
+        run: ./tutorial.sh -t
+      - run: ./tests/t2_lifecycle.sh
+      - run: ./tests/env.sh up
+      - run: python3 tests/t4_pty.py
+      - name: cleanup
+        if: always()
+        run: ./tests/env.sh down

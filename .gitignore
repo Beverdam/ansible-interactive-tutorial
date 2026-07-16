@@ -4,3 +4,4 @@ tutorials/progress.yaml
 token.secret
 *.secret
 PLAN.md
+__pycache__/
