@@ -35,13 +35,27 @@ container_running() {
     [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "true" ]
 }
 
+# tutorial.sh always runs `docker run -it` (fase 2 will make that
+# runtime-aware; unrelated to the problem here). On real Docker, `-it`
+# with stdin that isn't a real terminal (e.g. /dev/null, or a GitHub
+# Actions `run:` step, which never allocates one) makes the Docker CLI
+# hard-fail client-side with "the input device is not a TTY" before any
+# container is even created -- podman only warns and proceeds, which is
+# why this doesn't show up when testing locally against the podman shim.
+# `script` allocates a real pty for its child regardless of whether its
+# own invoker has one, which satisfies Docker's check. `-e` propagates
+# the wrapped command's exit code (without it, `script` always exits 0).
+run_tutorial() {
+    ( cd "${LIB_BASEDIR}" && script -qe -c "./tutorial.sh $*" /dev/null )
+}
+
 # Starts all 4 containers without blocking on the interactive nutsh menu.
 # nutsh reads from stdin (pointed at /dev/null here); it keeps printing the
 # menu and waiting rather than exiting, so the container stays up and we can
 # `docker exec` into it for scripted checks.
 start_environment() {
     "${LIB_BASEDIR}/tutorial.sh" --remove >/dev/null 2>&1 || true
-    ( cd "${LIB_BASEDIR}" && setsid ./tutorial.sh </dev/null >/tmp/tutorial-start.log 2>&1 & )
+    ( run_tutorial </dev/null >/tmp/tutorial-start.log 2>&1 & )
     wait_for 60 "ansible.tutorial container running" container_running ansible.tutorial
     wait_for 60 "host0.example.org running" container_running host0.example.org
     wait_for 60 "host1.example.org running" container_running host1.example.org

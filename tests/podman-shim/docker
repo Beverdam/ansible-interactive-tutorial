@@ -4,4 +4,16 @@
 # docker-ce-cli on GitHub's runners). Prepend this directory to PATH.
 # tutorial.sh and the test scripts all hardcode `docker` -- fase 2 adds
 # real runtime detection there.
+#
+# Fase 2 warning: this shim is a PATH-name trick, not a real runtime
+# signal. If fase 2's detection logic in tutorial.sh ends up trusting
+# "a binary named docker => real Docker" rather than probing behavior
+# (e.g. `docker info`/`docker version` output, which differs between
+# Docker and podman), it won't see through this shim -- but that's the
+# right thing to fix in the detection logic, not here: a docker-named
+# binary actually backed by podman is a real scenario in the wild too
+# (Fedora/RHEL's podman-docker package does exactly this), so detection
+# needs to handle it either way. Don't "fix" this by having the T6 job
+# export a CONTAINER_RUNTIME=podman env var instead -- that would let CI
+# bypass exercising whatever auto-detection fase 2 actually ships.
 exec podman "$@"

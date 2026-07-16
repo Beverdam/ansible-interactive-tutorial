@@ -139,6 +139,54 @@ bouwen van deze suite (`docker` = podman-shim op deze machine):
 Beide horen bij #33 en zijn **fase 2**-werk (podman-detectie +
 `--format`-aanroepen herschrijven in `tutorial.sh`).
 
+## Adversarial review (na eerste commit)
+
+Een `/code-review` pass (8 finder-angles + 1-vote verify, per `PLAN.md` §4)
+op de eerste fase-1-commit vond 5 bevestigde/plausibele issues, allemaal
+gefixt in een vervolgcommit:
+
+1. **Kritiek, bevestigd:** `docker run -it` (gebruikt door `tutorial.sh` en
+   dus door élke aanroep in deze suite) faalt hard op échte Docker als
+   stdin geen terminal is — precies de situatie in een GitHub Actions
+   `run:`-stap of een backgrounded proces. Podman waarschuwt alleen en gaat
+   door, dus dit bleef onzichtbaar bij lokaal testen tegen de podman-shim.
+   **Fix:** alle `tutorial.sh`-aanroepen lopen nu via `script -qe -c "..."
+   /dev/null` (nieuwe `run_tutorial()`-helper in `tests/lib.sh`), wat een
+   echte pty aan het kind geeft ongeacht of de aanroeper er zelf een heeft.
+   `-e` geeft de exitcode door (zonder die vlag geeft `script` altijd 0).
+2. **Bevestigd:** de `t6-podman`-job installeerde kaal `podman` zonder
+   registry-config; Ubuntu's podman-pakket heeft `docker.io` niet in
+   `unqualified-search-registries`, dus `turkenh/...`-image-pulls faalden
+   met een short-name-resolutiefout — een derde, ongedocumenteerde
+   faalmodus naast de twee al beschreven #33-symptomen. **Fix:** een
+   `registries.conf.d`-drop-in die `docker.io` toevoegt, vóór de eerste pull.
+3. **Plausibel:** `tests/t4_pty.py` decodeerde elke PTY-chunk apart, wat een
+   UTF-8-teken dat een chunkgrens overspant kan corrumperen. Momenteel
+   onbereikbaar (de enige non-ASCII string in `tutorials/` is dode code),
+   maar een echte bug. **Fix:** een stateful `codecs.getincrementaldecoder`
+   in plaats van chunk-voor-chunk `decode()`.
+4. **Bevestigd, lage impact:** `PtySession.close()` reapte het proces niet
+   opnieuw na een `kill()`, en signaleerde alleen het directe kind-PID
+   ondanks `setsid`. **Fix:** signaleert nu de hele procesgroep via
+   `os.killpg` en `wait()`t altijd na een kill.
+5. **Plausibel (ontwerpnotitie):** `tests/podman-shim/docker` heet letterlijk
+   `docker`, wat fase 2's runtime-detectie in de weg zou kunnen zitten als
+   die op bestandsnaam vertrouwt in plaats van op gedrag. **Fix:** geen
+   herontwerp (dat zou vooruitlopen op een nog-niet-gemaakte fase-2-keuze),
+   maar een expliciete waarschuwing in het shim-bestand voor de fase-2-auteur.
+
+Drie andere kandidaten uit de review bleken **refuted** bij verificatie —
+`tutorial.sh`'s bestaande zelfherstellende logica (kill-before-run,
+container-hergebruik, netwerk-hergebruik) ondervangt al precies de
+scenario's waar twee andere angles zich zorgen over maakten (ontbrekende
+cleanup-trap in T3/T7, verouderde netwerkstaat in de T6-job).
+
+Alle 5 fixes zijn lokaal opnieuw geverifieerd (T2/T3/T7/T4 herhaald met
+dezelfde uitkomsten als vóór de fix) — de `script`-wrapping verandert het
+gedrag onder podman niet (podman had het probleem toch al niet), dus dit
+kon alleen inhoudelijk tegen de podman-shim getest worden, niet tegen
+échte Docker. De GitHub Actions-run zelf is de uiteindelijke validatie.
+
 ## Wat nog klopt uit fase 0
 
 - shellcheck-bevindingen in `docs/BASELINE.md` — ongewijzigd, nog niet

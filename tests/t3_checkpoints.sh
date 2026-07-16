@@ -31,11 +31,11 @@ curl_check() {
 
 case "${1:-}" in
     apache)
-        LESSON_NAME="4-step-04" "${BASEDIR}/tutorial.sh" -t || fail "lesson 4-step-04 (apache) did not complete"
+        LESSON_NAME="4-step-04" run_tutorial -t || fail "lesson 4-step-04 (apache) did not complete"
         curl_check "apache on host1.example.org (lesson 5)" "http://127.0.0.1:$((HOSTPORT_BASE + 1))/"
         ;;
     jenkins)
-        LESSON_NAME="13-step-13" "${BASEDIR}/tutorial.sh" -t \
+        LESSON_NAME="13-step-13" run_tutorial -t \
             || log "T3: lesson 13-step-13 (jenkins) did not complete cleanly -- expected, see #32/#39"
         curl_check "jenkins on host0.example.org (lesson 14)" "http://127.0.0.1:$((HOSTPORT_BASE + 3))/"
         ;;

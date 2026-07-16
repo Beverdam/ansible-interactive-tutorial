@@ -57,7 +57,10 @@ jobs:
         continue-on-error: ${{ matrix.lesson == '13-step-13' }}
         env:
           LESSON_NAME: ${{ matrix.lesson }}
-        run: ./tutorial.sh -t
+        # `script` gives `docker run -it` (tutorial.sh) a real pty -- a
+        # bare `run:` step has none, and real Docker (unlike podman) hard
+        # fails client-side on `-it` without one. See tests/lib.sh.
+        run: script -qe -c "./tutorial.sh -t" /dev/null
       - name: cleanup
         if: always()
         run: ./tutorial.sh --remove
@@ -120,13 +123,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: install podman
         run: sudo apt-get update && sudo apt-get install -y podman
+      - name: configure docker.io as an unqualified-search registry
+        # Ubuntu's podman package ships no unqualified-search-registries
+        # by default (only a curated shortnames list for official images),
+        # so `podman pull turkenh/...` fails to resolve before any of the
+        # documented #33 symptoms are ever reached. tutorial.sh uses short
+        # names throughout, so this is fixed at the registry-config layer
+        # rather than by qualifying every image reference.
+        run: |
+          sudo mkdir -p /etc/containers/registries.conf.d
+          printf 'unqualified-search-registries = ["docker.io"]\n' | sudo tee /etc/containers/registries.conf.d/999-docker-io.conf
       - name: shim docker -> podman
         run: echo "${GITHUB_WORKSPACE}/tests/podman-shim" >> "${GITHUB_PATH}"
       - run: ./tutorial.sh --remove
       - name: t1 smoke (lesson 0)
         env:
           LESSON_NAME: 0-step-00
-        run: ./tutorial.sh -t
+        run: script -qe -c "./tutorial.sh -t" /dev/null
       - run: ./tests/t2_lifecycle.sh
       - run: ./tests/env.sh up
       - run: python3 tests/t4_pty.py

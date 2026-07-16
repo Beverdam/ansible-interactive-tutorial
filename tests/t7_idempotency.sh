@@ -50,7 +50,7 @@ FAILED=0
 for entry in "${SCOPE[@]}"; do
     IFS='|' read -r label lesson cmd <<< "${entry}"
     log "T7 [${label}]: running lesson ${lesson} to converge state"
-    if ! LESSON_NAME="${lesson}" "${BASEDIR}/tutorial.sh" -t >/tmp/t7-"${label}"-setup.log 2>&1; then
+    if ! LESSON_NAME="${lesson}" run_tutorial -t >/tmp/t7-"${label}"-setup.log 2>&1; then
         log "T7 [${label}]: SKIP -- lesson did not complete (see T1 / /tmp/t7-${label}-setup.log)"
         continue
     fi

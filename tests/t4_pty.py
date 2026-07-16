@@ -10,10 +10,12 @@ entirely, which is why Travis stayed green while these bugs existed.
 
 Assumes the environment is already up (see tests/env.sh up).
 """
+import codecs
 import os
 import pty
 import re
 import select
+import signal
 import subprocess
 import sys
 import time
@@ -35,6 +37,11 @@ class PtySession:
         )
         os.close(slave_fd)
         self.buffer = ""
+        # Stateful decoder: a chunk boundary can land mid-character, and
+        # decoding each os.read() independently would replace both the
+        # truncated tail and the next chunk's orphaned continuation bytes
+        # with separate U+FFFDs instead of the real character.
+        self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
     def read_until(self, pattern, timeout=TIMEOUT):
         deadline = time.time() + timeout
@@ -50,21 +57,34 @@ class PtySession:
                     break
                 if not chunk:
                     break
-                self.buffer += chunk.decode(errors="replace")
+                self.buffer += self._decoder.decode(chunk)
         return regex.search(self.buffer) is not None
 
     def send(self, text):
         os.write(self.master_fd, text.encode())
 
     def close(self):
+        # setsid made this process its own group leader, so signal the
+        # whole group (any local helper process docker/podman spawned in
+        # it, not just the client PID) -- and always re-wait after a kill
+        # so the process is actually reaped instead of left a zombie.
         try:
-            self.proc.terminate()
-            self.proc.wait(timeout=5)
-        except Exception:
+            pgid = os.getpgid(self.proc.pid)
+        except ProcessLookupError:
+            pgid = None
+        if pgid is not None:
             try:
-                self.proc.kill()
+                os.killpg(pgid, signal.SIGTERM)
+                self.proc.wait(timeout=5)
             except Exception:
-                pass
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    pass
+                try:
+                    self.proc.wait(timeout=5)
+                except Exception:
+                    pass
         try:
             os.close(self.master_fd)
         except OSError:
