@@ -87,14 +87,21 @@ TASK [Installs apache web server] ********************* \n\t
 changed: [host1.example.org]\n\t
 \n")
 
-"Next, the real stuff: our (first and only) task is run, and because it says `changed`, we know that it changed something on `host1.example.org`."
+"Next, the real stuff: our first task installs the `apache2` package, and because it says `changed`, we know that it changed something on `host1.example.org`."
+
+print ("\t
+TASK [Starts apache web server] ********************* \n\t
+changed: [host1.example.org]\n\t
+\n")
+
+"Our second task makes sure the service is actually running. `state=started` is idempotent: it only starts the service if it isn't already running, so it will only ever show `changed` the first time."
 
 print ("\t
 PLAY RECAP ********************* \n\t
-host1.example.org              : ok=2    changed=1    unreachable=0    failed=0 \n\t
+host1.example.org              : ok=3    changed=2    unreachable=0    failed=0 \n\t
 \n")
 
-"Finally, ansible outputs a recap of what happened: two tasks have been run and one of them changed something on the host (our apache task, setup module doesn't change anything)."
+"Finally, ansible outputs a recap of what happened: three tasks have been run and two of them changed something on the host (our two apache tasks, setup module doesn't change anything)."
 
 "Now let's try to run it again and see what happens:"
 
