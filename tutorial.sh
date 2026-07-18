@@ -55,6 +55,22 @@ function help() {
 "
 }
 
+function doesImageExist() {
+    "${CONTAINER_ENGINE}" image inspect "$1" >/dev/null 2>&1
+}
+
+function ensureImagesBuilt() {
+    if doesImageExist "${DOCKER_HOST_IMAGE}" && doesImageExist "${TUTORIAL_IMAGE}"; then
+        return
+    fi
+    echo "Images not found locally -- building them now (images/Makefile), this only happens once."
+    if ! command -v make >/dev/null 2>&1; then
+        echo "Could not find 'make'. Install it, or build the images yourself: (cd images && make build_all)" >&2
+        exit 1
+    fi
+    make -C "${BASEDIR}/images" build_all
+}
+
 function doesNetworkExist() {
     "${CONTAINER_ENGINE}" network inspect "$1" >/dev/null 2>&1
 }
@@ -148,6 +164,7 @@ function setupFiles() {
 }
 
 function init () {
+    ensureImagesBuilt
     mkdir -p "${WORKSPACE}"
     doesNetworkExist "${NETWORK_NAME}" || { echo "creating network ${NETWORK_NAME}" && "${CONTAINER_ENGINE}" network create "${NETWORK_NAME}" >/dev/null; }
     for ((i = 0; i < NOF_HOSTS; i++)); do
