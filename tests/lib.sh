@@ -2,9 +2,11 @@
 # Shared helpers for the smoke-test suite (see PLAN.md §3a).
 #
 # Assumes `docker` is on PATH -- either real Docker (build-test/T-jobs) or a
-# podman shim (the podman job, see tests/podman-shim/docker). tutorial.sh
-# itself hardcodes `docker`; fase 2 adds runtime detection there. Until
-# then, these test scripts follow the same assumption.
+# podman shim (the podman job, see tests/podman-shim/docker). As of fase 2,
+# tutorial.sh is runtime-agnostic (honors CONTAINER_ENGINE, defaults to the
+# `docker` command, and only uses inspect/run forms that behave the same on
+# docker and podman). These test scripts follow the same assumption: they
+# call `docker` directly, which the podman job satisfies via the PATH shim.
 
 LIB_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -33,6 +35,14 @@ wait_for() {
 
 container_running() {
     [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "true" ]
+}
+
+# True when `docker` is actually podman (real Docker or the podman-docker
+# shim). Detects by *behavior* -- the version string -- not by binary name,
+# matching tutorial.sh's runtime handling. Used to relax checks that are
+# genuinely unreliable under podman (e.g. ICMP/fping under rootless podman).
+is_podman() {
+    docker --version 2>/dev/null | grep -qi podman
 }
 
 # tutorial.sh always runs `docker run -it` (fase 2 will make that

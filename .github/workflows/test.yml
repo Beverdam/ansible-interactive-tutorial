@@ -5,12 +5,18 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Fase 1 (see PLAN.md §3a): the smoke-test suite runs against the pulled
-# `turkenh/*:1.1` baseline images, not `docker build` -- those Dockerfiles
-# don't build anymore (see docs/BASELINE.md). Building locally starts in
-# fase 2. Some jobs are `continue-on-error: true`; each is a documented
-# reproduction of a known issue or a fase-1 finding, not flakiness -- see
-# the comment on each job and docs/BASELINE.md for the full inventory.
+# The smoke-test suite runs against the pulled `turkenh/*:1.1` baseline
+# images, not `docker build` -- those Dockerfiles don't build anymore (see
+# docs/BASELINE.md). Rebuilding on a modern base is fase 3. Some jobs are
+# `continue-on-error: true`; each is a documented reproduction of a known
+# issue or a fase-1 finding, not flakiness -- see the comment on each job,
+# docs/BASELINE.md and PLAN.md §6 for the full inventory.
+#
+# Fase 2 (this change): tutorial.sh is now shellcheck-clean and
+# runtime-agnostic; #33's empty-ansible_host bug (podman `--format
+# ...IPv4Address`) is fixed via a portable per-container inspect. The
+# shellcheck step is therefore now blocking. hadolint stays soft until the
+# Dockerfiles are modernised in fase 3. See docs/FASE2.md.
 
 jobs:
   lint:
@@ -18,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck tutorial.sh
-        continue-on-error: true # fixed in fase 2, see docs/BASELINE.md
+        # Blocking as of fase 2: tutorial.sh is shellcheck-clean.
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
           shellcheck tutorial.sh
@@ -113,11 +119,15 @@ jobs:
 
   t6-podman:
     runs-on: ubuntu-latest
-    # Expected red: reproduces #33. `docker network inspect --format`
-    # relies on a `.Containers.*.IPv4Address` field that podman's Go
-    # template output doesn't have (empty ansible_host in generated
-    # inventories), and fping reports all hosts unreachable under podman's
-    # rootless networking. Fixed in fase 2. See docs/BASELINE.md.
+    # #33's core bug is FIXED in fase 2: setupFiles() now reads each host's
+    # IP via a portable per-container `inspect` instead of the
+    # podman-incompatible `network inspect --format ...IPv4Address` template,
+    # so generated inventories get a real ansible_host under podman (verified
+    # locally on podman 5.4). T2's fping check is now informational under
+    # podman (ICMP is unreliable rootless); ssh is authoritative. Kept
+    # `continue-on-error` for one more run so GitHub's runner result confirms
+    # green before this is made blocking (this env's nested container DNS
+    # couldn't fully verify it). See docs/FASE2.md.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

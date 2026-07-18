@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 NOF_HOSTS=3
@@ -30,87 +32,120 @@ DOCKER_IMAGETAG=${DOCKER_IMAGETAG:-1.1}
 DOCKER_HOST_IMAGE="turkenh/ubuntu-1604-ansible-docker-host:${DOCKER_IMAGETAG}"
 TUTORIAL_IMAGE="turkenh/ansible-tutorial:${DOCKER_IMAGETAG}"
 
+# Container runtime. Honor an explicit override, otherwise default to the
+# `docker` command -- a podman-docker shim on PATH also answers to `docker`,
+# so this works under both engines without hardcoding one. We deliberately do
+# NOT branch on the binary *name* to pick an engine (Fedora/RHEL's
+# podman-docker is literally named `docker`); podman compatibility is instead
+# achieved by only using inspect/run invocations that behave the same on both
+# (see setupFiles: per-container inspect rather than a podman-incompatible
+# `network inspect --format ...IPv4Address` template). See tests/podman-shim.
+CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
+
 function help() {
     echo -ne "-h, --help              prints this help message
 -r, --remove            remove created containers and network
 -t, --test              run lesson tests
 "
 }
+
 function doesNetworkExist() {
-    return $(docker network inspect $1 >/dev/null 2>&1)
+    "${CONTAINER_ENGINE}" network inspect "$1" >/dev/null 2>&1
 }
 
 function removeNetworkIfExists() {
-    doesNetworkExist $1 && echo "removing network $1" && docker network rm $1 >/dev/null
+    if doesNetworkExist "$1"; then
+        echo "removing network $1"
+        "${CONTAINER_ENGINE}" network rm "$1" >/dev/null
+    fi
 }
 
 function doesContainerExist() {
-    return $(docker inspect $1 >/dev/null 2>&1)
+    "${CONTAINER_ENGINE}" inspect "$1" >/dev/null 2>&1
 }
 
 function isContainerRunning() {
-    [[ "$(docker inspect -f "{{.State.Running}}" $1 2>/dev/null)" == "true" ]]
+    [[ "$("${CONTAINER_ENGINE}" inspect -f "{{.State.Running}}" "$1" 2>/dev/null)" == "true" ]]
 }
 
 function killContainerIfExists() {
-    doesContainerExist $1 && echo "killing/removing container $1" && { docker kill $1 >/dev/null 2>&1; docker rm $1 >/dev/null 2>&1; };
+    if doesContainerExist "$1"; then
+        echo "killing/removing container $1"
+        "${CONTAINER_ENGINE}" kill "$1" >/dev/null 2>&1 || true
+        "${CONTAINER_ENGINE}" rm "$1" >/dev/null 2>&1 || true
+    fi
 }
 
 function runHostContainer() {
     local name=$1
     local image=$2
-    local port1=$(($HOSTPORT_BASE + $3))
-    local port2=$(($HOSTPORT_BASE + $3 + $NOF_HOSTS))
+    local index=$3
+    local port1=$((HOSTPORT_BASE + index))
+    local port2=$((HOSTPORT_BASE + index + NOF_HOSTS))
 
-    echo "starting container ${name}: mapping hostport $port1 -> container port 80 && hostport $port2 -> container port ${EXTRA_PORTS[$3]}"
-    if doesContainerExist ${name}; then
-        docker start "${name}" > /dev/null
+    echo "starting container ${name}: mapping hostport ${port1} -> container port 80 && hostport ${port2} -> container port ${EXTRA_PORTS[${index}]}"
+    if doesContainerExist "${name}"; then
+        "${CONTAINER_ENGINE}" start "${name}" > /dev/null
     else
-        docker run -d -p $port1:80 -p $port2:${EXTRA_PORTS[$3]} --net ${NETWORK_NAME} --name="${name}" "${image}" >/dev/null
-    fi
-    if [ $? -ne 0 ]; then
-        echo "Could not start host container. Exiting!"
-        exit 1
+        "${CONTAINER_ENGINE}" run -d -p "${port1}:80" -p "${port2}:${EXTRA_PORTS[${index}]}" \
+            --net "${NETWORK_NAME}" --name="${name}" "${image}" >/dev/null
     fi
 }
 
 function runTutorialContainer() {
-    local entrypoint=""
-    local args=""
+    local entrypoint=()
+    local args=()
     if [ -n "${TEST}" ]; then
-        entrypoint="--entrypoint nutsh"
-        args="test /tutorials ${LESSON_NAME}"
+        entrypoint=(--entrypoint nutsh)
+        args=(test /tutorials "${LESSON_NAME}")
     fi
     killContainerIfExists ansible.tutorial > /dev/null
     echo "starting container ansible.tutorial"
-    docker run -it -v "${WORKSPACE}":/root/workspace:Z -v "${TUTORIALS_FOLDER}":/tutorials:Z --net ${NETWORK_NAME} \
-      --env HOSTPORT_BASE=$HOSTPORT_BASE \
-      ${entrypoint} --name="ansible.tutorial" "${TUTORIAL_IMAGE}" ${args}
-    return $?
+    local status=0
+    "${CONTAINER_ENGINE}" run -it \
+      -v "${WORKSPACE}":/root/workspace:Z \
+      -v "${TUTORIALS_FOLDER}":/tutorials:Z \
+      --net "${NETWORK_NAME}" \
+      --env HOSTPORT_BASE="${HOSTPORT_BASE}" \
+      "${entrypoint[@]}" --name="ansible.tutorial" "${TUTORIAL_IMAGE}" "${args[@]}" || status=$?
+    return "${status}"
 }
 
 function remove () {
-    for ((i = 0; i < $NOF_HOSTS; i++)); do
-       killContainerIfExists host$i.example.org
+    for ((i = 0; i < NOF_HOSTS; i++)); do
+       killContainerIfExists "host$i.example.org"
     done
-    removeNetworkIfExists ${NETWORK_NAME}
+    # Best-effort: network removal predictably fails while ansible.tutorial is
+    # still attached (it is only killed at the start of a run, not by
+    # --remove). Don't let that abort cleanup of everything else. The engine's
+    # own error still prints to stderr for visibility.
+    removeNetworkIfExists "${NETWORK_NAME}" || true
 }
 
 function setupFiles() {
     # step-01/02
     local step_01_hosts_file="${BASEDIR}/tutorials/files/step-1-2/hosts"
     rm -f "${step_01_hosts_file}"
-    for ((i = 0; i < $NOF_HOSTS; i++)); do
-        #ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' host$i.example.org)
-        ip=$(docker network inspect --format="{{range \$id, \$container := .Containers}}{{if eq \$container.Name \"host$i.example.org\"}}{{\$container.IPv4Address}} {{end}}{{end}}" ${NETWORK_NAME} | cut -d/ -f1)
+    for ((i = 0; i < NOF_HOSTS; i++)); do
+        # Read the container's IP straight from its own inspect data. This is
+        # portable across docker and podman -- unlike `network inspect
+        # --format "...{{$c.IPv4Address}}"`, whose IPv4Address field does not
+        # exist in podman's network container struct (issue #33, left
+        # ansible_host= empty). Each host is attached to exactly one network
+        # (NETWORK_NAME), so ranging over Networks yields a single IP.
+        local ip
+        ip=$("${CONTAINER_ENGINE}" inspect \
+            -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+            "host$i.example.org")
         echo "host$i.example.org ansible_host=$ip ansible_user=root" >> "${step_01_hosts_file}"
     done
 }
+
 function init () {
     mkdir -p "${WORKSPACE}"
-    doesNetworkExist "${NETWORK_NAME}" || { echo "creating network ${NETWORK_NAME}" && docker network create "${NETWORK_NAME}" >/dev/null; }
-    for ((i = 0; i < $NOF_HOSTS; i++)); do
-       isContainerRunning host$i.example.org || runHostContainer host$i.example.org ${DOCKER_HOST_IMAGE} $i
+    doesNetworkExist "${NETWORK_NAME}" || { echo "creating network ${NETWORK_NAME}" && "${CONTAINER_ENGINE}" network create "${NETWORK_NAME}" >/dev/null; }
+    for ((i = 0; i < NOF_HOSTS; i++)); do
+       isContainerRunning "host$i.example.org" || runHostContainer "host$i.example.org" "${DOCKER_HOST_IMAGE}" "$i"
     done
     setupFiles
     runTutorialContainer
@@ -120,6 +155,7 @@ function init () {
 ###
 MODE="init"
 TEST=""
+LESSON_NAME="${LESSON_NAME:-}"
 for i in "$@"; do
 case $i in
     -r|--remove)
@@ -133,7 +169,6 @@ case $i in
     -h|--help)
     help
     exit 0
-    shift # past argument=value
     ;;
     *)
     echo "Unknown argument ${i#*=}"
