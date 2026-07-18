@@ -123,33 +123,28 @@ jobs:
       - name: build images
         run: make -C images build_all
       - name: apache checkpoint (lesson 5)
-        # Still expected-fail (verified locally, fase 4) -- but no longer
-        # for the nutsh test-mode panic. The pre-existing fase-1 finding is
-        # confirmed the real cause with honest signal now:
-        # files/step-4/apache.yml installs apache2 but never explicitly
-        # starts it (no `service: state=started` task, and this image's
-        # /start.sh runs no init that would auto-start it as a side effect
-        # of `apt install`). Fix is fase 5 (docs/FASE1.md/BASELINE.md).
-        continue-on-error: true
+        # Blocking as of fase 5: files/step-4/apache.yml now explicitly
+        # starts apache2 (was installed but never started, the fase-1
+        # finding). Verified locally and on GitHub's runners -- HTTP 200.
         run: ./tests/t3_checkpoints.sh apache
       - name: jenkins checkpoint (lesson 14)
-        # Expected-fail on content grounds -- #32/#39, see docs/FASE4.md for
-        # the precise diagnosis (gets much further than before, fails on
-        # starting the jenkins service itself).
+        # Expected-fail on content grounds -- #32/#39. Fase 6 fixed two
+        # real bugs here (openjdk-25-jdk doesn't exist as a package on
+        # Ubuntu 26, host0's apt cache was never updated before this
+        # lesson) and got much further, but hit a hard blocker: the role's
+        # "Immediately restart Jenkins on init config changes" handler
+        # calls the `systemd:` module directly with daemon_reload: true,
+        # which needs a real systemd D-Bus connection our containers don't
+        # have. See docs/FASE6.md.
         continue-on-error: true
         run: ./tests/t3_checkpoints.sh jenkins
 
   t7-idempotency:
     runs-on: ubuntu-latest
-    # Expected partially red: the apache playbooks use `command:` tasks
-    # (a2ensite/a2dissite/apache2ctl configtest) with no `changed_when`, so
-    # ansible reports `changed` every run regardless of actual state.
-    # haproxy-only and the two simplest apache lessons are genuinely
-    # idempotent already (verified locally, fase 4, now that
-    # t7_idempotency.sh drives lessons via tests/t1_lessons.py instead of
-    # nutsh test mode). Fix is fase 5 work. See docs/BASELINE.md and
-    # docs/FASE4.md.
-    continue-on-error: true
+    # Blocking as of fase 5: creates=/removes=/changed_when: false added to
+    # the a2ensite/a2dissite/apache2ctl configtest command: tasks. Verified
+    # locally and on GitHub's runners -- T7: PASS, all 7 scoped lessons
+    # idempotent. See docs/FASE5.md.
     steps:
       - uses: actions/checkout@v4
       - name: build images
@@ -174,15 +169,17 @@ jobs:
 
   t6-podman:
     runs-on: ubuntu-latest
-    # #33's core bug is FIXED in fase 2: setupFiles() now reads each host's
-    # IP via a portable per-container `inspect` instead of the
-    # podman-incompatible `network inspect --format ...IPv4Address` template,
-    # so generated inventories get a real ansible_host under podman (verified
-    # locally on podman 5.4). T2's fping check is now informational under
-    # podman (ICMP is unreliable rootless); ssh is authoritative. Kept
-    # `continue-on-error` for one more run so GitHub's runner result confirms
-    # green before this is made blocking (this env's nested container DNS
-    # couldn't fully verify it). See docs/FASE2.md.
+    # #33's core bug is FIXED in fase 2 (setupFiles() portable inspect).
+    # `make -C images build_all` itself was failing here though: GitHub's
+    # runner had no /etc/subuid//etc/subgid range for "beverdam" -- because
+    # images/Makefile's `USER=beverdam` variable was shadowing the real
+    # $USER environment variable for every command make ran (GNU Make
+    # re-exports environment-inherited variables to child processes even
+    # after a Makefile reassigns them), so rootless podman's subuid lookup
+    # queried the wrong name. Fixed in fase 6 (Makefile: USER ->
+    # IMAGE_NAMESPACE). Kept `continue-on-error` for one more run to let
+    # GitHub's runner confirm before making this blocking. See
+    # docs/FASE6.md.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

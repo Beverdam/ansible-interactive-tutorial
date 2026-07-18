@@ -1,6 +1,24 @@
 - hosts: jenkins
   vars:
     jenkins_hostname: host0.example.org
+    # geerlingguy.java defaults to openjdk-25-jdk on Ubuntu 26, which
+    # doesn't exist as an installable package on this release (only
+    # openjdk-25-jdk-headless does) -- apt fails with "No package matching
+    # 'openjdk-25-jdk' is available". openjdk-21-jdk is the role's own
+    # documented LTS alternative (vars/Ubuntu-26.yml) and does exist.
+    java_packages:
+      - openjdk-21-jdk
+  pre_tasks:
+    # pre_tasks, not tasks: roles run before a play's own `tasks:`, so a
+    # plain `tasks:` entry here would run too late to help the role's own
+    # package installs below. host0 hasn't necessarily had apt update run
+    # on it before this lesson (unlike host1/host2, which every apache
+    # lesson updates); neither geerlingguy.java nor geerlingguy.jenkins
+    # does this themselves, so on a genuinely fresh host the package index
+    # is empty and every install below fails with "No package matching
+    # ... is available".
+    - name: Updates apt cache
+      apt: update_cache=true
   roles:
     - role: geerlingguy.java
     - role: geerlingguy.jenkins
