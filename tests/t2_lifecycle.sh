@@ -36,7 +36,18 @@ for c in host0.example.org host1.example.org host2.example.org ansible.tutorial;
 done
 
 log "T2: control node -> hosts reachability (fping)"
-check docker exec ansible.tutorial fping host0.example.org host1.example.org host2.example.org
+# fping uses ICMP, which is not guaranteed under rootless podman (issue #33).
+# Under podman we run it informationally; ssh below is the authoritative
+# reachability check. Under real Docker it stays a hard check.
+if is_podman; then
+    if docker exec ansible.tutorial fping host0.example.org host1.example.org host2.example.org; then
+        log "T2: fping OK under podman"
+    else
+        log "T2: NOTE: fping failed under podman (ICMP not guaranteed rootless) -- not a failure; ssh is authoritative"
+    fi
+else
+    check docker exec ansible.tutorial fping host0.example.org host1.example.org host2.example.org
+fi
 
 log "T2: control node -> hosts reachability (ssh)"
 for h in host0 host1 host2; do
