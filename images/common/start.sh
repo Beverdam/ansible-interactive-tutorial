@@ -12,4 +12,13 @@ while [ "${ALLOW_EXIT}" != "true" ]; do
     script -q -c "/bin/bash -l" /dev/null
 done
 script -q -c "/bin/bash -l" /dev/null
-exec script -q -c "tail -f /dev/null" /dev/null
+
+# Plain `tail`, not `script -c tail`: this becomes PID 1, and its process
+# name matters. Ansible's service-manager fact detection reads PID 1's comm
+# to guess the init system; wrapped in `script` here, PID 1's comm was
+# literally "script", which ansible-core's detection logic apparently
+# matches as a (bogus) service-manager identifier -- every `service:`
+# module task then fails with "module (script) is missing interpreter
+# line". `tail -f /dev/null` needs no pty of its own (it's not
+# interactive), so the wrapper was unnecessary anyway.
+exec tail -f /dev/null

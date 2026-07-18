@@ -8,16 +8,25 @@
 # (both intentionally end in a failed run), and any command/shell-driven
 # lesson that isn't about playbook convergence.
 #
-# Each scoped lesson is run once via `nutsh test` (which also copies the
-# lesson's files into /root/workspace exactly as a user would experience
-# it -- including the roles/ layout lesson 13 assembles), then the same
-# playbook command is re-run directly in that workspace and its output is
-# checked for `changed=0`.
+# Each scoped lesson is run once via tests/t1_lessons.py (which also copies
+# the lesson's files into /root/workspace exactly as a user would
+# experience it -- including the roles/ layout lesson 13 assembles), then
+# the same playbook command is re-run directly in that workspace and its
+# output is checked for `changed=0`.
+#
+# Fase 4: was `nutsh test` (`run_tutorial -t`); replaced with
+# tests/t1_lessons.py, which drives each lesson's real command sequence
+# directly instead of going through nutsh's test-mode interpreter -- that
+# interpreter has its own PTY-tokenizer race condition (panics on 13/15
+# lessons even when the driven command visibly succeeded), unrelated to
+# tutorial content. See docs/FASE4.md. This also fixes a stale image
+# reference: TUTORIAL_IMAGE below pointed at the archived `turkenh/*:1.1`
+# tag rather than the locally-built image tutorial.sh now uses (fase 3).
 #
 # Known baseline finding (not a regression): the apache playbooks use
 # `command:` tasks (a2ensite/a2dissite/apache2ctl configtest) which have no
 # built-in idempotency -- Ansible reports `changed` on every run regardless
-# of actual state. This is expected to go red here until fase 4 adds
+# of actual state. This is expected to go red here until fase 5 adds
 # `changed_when`/`creates` to those tasks. The haproxy-only playbook uses
 # only idempotent modules and is expected green from the start.
 set -uo pipefail
@@ -25,15 +34,16 @@ BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib.sh
 source "${BASEDIR}/tests/lib.sh"
 
-# Mirrors tutorial.sh's own definitions -- `nutsh test` runs the tutorial
-# container in the foreground and it exits once the lesson finishes, so we
-# can't `docker exec` into it afterwards. Its workspace is a host bind
-# mount though, so a fresh throwaway container on the same network sees the
-# exact same converged state to re-run the playbook against.
-DOCKER_IMAGETAG=${DOCKER_IMAGETAG:-1.1}
-TUTORIAL_IMAGE="turkenh/ansible-tutorial:${DOCKER_IMAGETAG}"
+# A fresh throwaway container on the same network sees the exact same
+# converged state (workspace is a host bind mount) to re-run the playbook
+# against, without disturbing the long-running ansible.tutorial container.
+DOCKER_IMAGETAG=${DOCKER_IMAGETAG:-2.0}
+TUTORIAL_IMAGE="${TUTORIAL_IMAGE:-beverdam/ansible-tutorial:${DOCKER_IMAGETAG}}"
 NETWORK_NAME="ansible.tutorial"
 WORKSPACE="${BASEDIR}/workspace"
+
+trap stop_environment EXIT
+start_environment
 
 # label|lesson file|playbook command to re-run inside /root/workspace
 SCOPE=(
@@ -50,7 +60,7 @@ FAILED=0
 for entry in "${SCOPE[@]}"; do
     IFS='|' read -r label lesson cmd <<< "${entry}"
     log "T7 [${label}]: running lesson ${lesson} to converge state"
-    if ! LESSON_NAME="${lesson}" run_tutorial -t >/tmp/t7-"${label}"-setup.log 2>&1; then
+    if ! python3 "${BASEDIR}/tests/t1_lessons.py" "${lesson}" >/tmp/t7-"${label}"-setup.log 2>&1; then
         log "T7 [${label}]: SKIP -- lesson did not complete (see T1 / /tmp/t7-${label}-setup.log)"
         continue
     fi

@@ -24,8 +24,8 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 1 | Testsuite eerst (het vangnet): T1–T4/T6/T7 + CI | ✅ `docs/FASE1.md` |
 | 2 | `tutorial.sh` hardening (`set -euo pipefail`, quoting) + podman-support (#33) + dit PLAN.md | ✅ `docs/FASE2.md` |
 | 3 | Moderne, herbouwbare images (Ubuntu 26.04 LTS + Python 3, nutsh v2.0.0, eigen namespace, #26 ssh-keys) + `\|failed`-contentfix vervroegd | ✅ `docs/FASE3.md` |
-| 4 | nutsh test-mode-regressie (nieuw, fase-3-bevinding) + interactieve bugs (#12/#22/#25/#37) + T5-unittests | ⬜ |
-| 5 | Ansible-content modernisering (`\|failed`→`is failed`), idempotentie (T7), apache-service (T3), lesson 14 Jenkins (#32/#39) | ⬜ |
+| 4 | nutsh test-mode vervangen door eigen driver (T1/T3/T7); 4 verborgen bugs blootgelegd en gefixt; #12/#22/#37 herbevestigd groen (interactief) | ✅ `docs/FASE4.md` |
+| 5 | Idempotentie (T7 `changed_when`), lesson 14 Jenkins (#32/#39, nu preciezer gediagnosticeerd) | ⬜ |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd

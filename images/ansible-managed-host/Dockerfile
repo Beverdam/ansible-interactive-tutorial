@@ -3,10 +3,15 @@ LABEL maintainer="Beverdam"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# iproute2 (the `ip` command) is required for ansible's network fact
+# gathering (ansible_eth0, ansible_default_ipv4, ...) on modern targets --
+# net-tools' `ifconfig` alone isn't enough; without it those facts are
+# silently absent (AnsibleUndefinedVariable at template-render time).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         iputils-ping \
         netbase \
         net-tools \
+        iproute2 \
         python3 \
         python3-apt \
         git \
