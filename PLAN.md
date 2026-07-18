@@ -27,7 +27,7 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 4 | nutsh test-mode vervangen door eigen driver (T1/T3/T7); 4 verborgen bugs blootgelegd en gefixt; #12/#22/#37 herbevestigd groen (interactief) | ✅ `docs/FASE4.md` |
 | 5 | T7-idempotentie + T3-apache-service: compleet & geverifieerd. Jenkins (#32/#39): dieper gediagnosticeerd (root cause: role forceert systemd-module), niet gefixt | ✅ `docs/FASE5.md` |
 | 6 | `t6-podman` root cause gefixt (Makefile `$USER`-shadowing). Jenkins: 2 bugs gefixt (java-versie, apt-cache-timing), 1 harde blocker vastgesteld (role vereist echte systemd, `daemon_reload:` hardgecodeerd) | ✅ `docs/FASE6.md` |
-| 7 | Jenkins volledig oplossen (systemd in container, of oudere role-pin) — apart te plannen; #25 WSL-check | ⬜ |
+| 7 | Jenkins: definitief onderzocht — geen enkele rolversie werkt zonder systemd (oude versies: `apt-key` verwijderd uit Ubuntu 26.04; nieuwe versies: hardgecodeerd `systemd:`). **Besluit (eigenaar): geaccepteerde, gedocumenteerde beperking — geen systemd-architectuurwijziging.** #25 blijft handmatige check. | ✅ `docs/FASE7.md` |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd
@@ -95,7 +95,7 @@ Statuskolom = doelfase waarin het issue groen wordt.
 | — | `t6-podman`: podman rootless build faalt op GitHub | Makefile `USER=` botste met shell's `$USER` (subuid/subgid-lookup) → hernoemd naar `IMAGE_NAMESPACE` | ✅ **6** |
 | 🆕 | Les 14: `openjdk-25-jdk` bestaat niet als los pakket op Ubuntu 26.04 | `java_packages: [openjdk-21-jdk]` override in jenkins.yaml | ✅ **6** |
 | 🆕 | Les 14: host0 nooit ge-`apt update`-t vóór deze les | `pre_tasks:` met `apt: update_cache=true` (let op: niet `tasks:`, roles draaien vóór tasks) | ✅ **6** |
-| #32/#39 | Les 14: harde blocker — role's `daemon_reload:` roept `systemd:` hardgecodeerd aan, vereist échte systemd (D-Bus) | Systemd in container draaien (architectuurwijziging) of oudere role-versie pinnen | 7 |
+| #32/#39 | Les 14: harde blocker — geen enkele rolversie werkt zonder systemd (oud: `apt-key` verwijderd; nieuw: hardgecodeerd `systemd:`, geverifieerd geen overlap) | **Geaccepteerde beperking (besluit eigenaar, fase 7)** — geen fix, gedocumenteerd | ✅ **7** (afgesloten, niet opgelost) |
 | — | T7: apache `command:`-taken niet idempotent | `changed_when`/`creates=`/`removes=` | ✅ **5** |
 | — | T3: apache-service start niet in les 5 | `service: state=started` in step-4 | ✅ **5** |
 | #41 | Sessiepersistentie | — | buiten scope |
