@@ -1,12 +1,13 @@
 #!/bin/bash
 # T2: build/lifecycle test (see PLAN.md §3a).
 #
-# Fase 1 uses the pulled `turkenh/*:1.1` images (see docs/BASELINE.md) --
-# not `docker build`, which does not work against those Dockerfiles until
-# fase 2. Covers: all 4 containers start; the control node reaches the 3
-# hosts via fping and ssh; stopping/restarting the tutorial container
-# reuses the host containers (the #12 scenario); `--remove` cleans up;
-# HOSTPORT_BASE override is honoured.
+# As of fase 3, images are built locally from images/ (see images/Makefile)
+# on a modern base (Ubuntu 26.04 LTS + Python 3, nutsh v2.0.0 + pinned
+# ansible-core) instead of pulling turkenh's archived `:1.1` images. Covers:
+# all 4 containers start; the control node reaches the 3 hosts via fping and
+# ssh; stopping/restarting the tutorial container reuses the host containers
+# (the #12 scenario); `--remove` cleans up; HOSTPORT_BASE override is
+# honoured.
 set -uo pipefail
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib.sh
@@ -24,9 +25,8 @@ check() {
     return 0
 }
 
-log "T2: pulling baseline images"
-docker pull turkenh/ubuntu-1604-ansible-docker-host:1.1
-docker pull turkenh/ansible-tutorial:1.1
+log "T2: building images"
+make -C "${BASEDIR}/images" build_all
 
 log "T2: starting full environment (4 containers)"
 start_environment
