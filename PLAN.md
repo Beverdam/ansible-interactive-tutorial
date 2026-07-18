@@ -22,9 +22,9 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 |---|---|---|
 | 0 | Fork & baseline setup, issue-inventaris, shellcheck-triage | ✅ `docs/BASELINE.md` |
 | 1 | Testsuite eerst (het vangnet): T1–T4/T6/T7 + CI | ✅ `docs/FASE1.md` |
-| 2 | `tutorial.sh` hardening (`set -euo pipefail`, quoting) + podman-support (#33) + dit PLAN.md | 🔄 in uitvoering |
-| 3 | Moderne, herbouwbare images (Ubuntu 24.04 + Python 3, nutsh pinnen, eigen namespace, #26 ssh-keys) | ⬜ |
-| 4 | nutsh interactieve bugs (#12/#22/#25/#37) + T5-unittests | ⬜ |
+| 2 | `tutorial.sh` hardening (`set -euo pipefail`, quoting) + podman-support (#33) + dit PLAN.md | ✅ `docs/FASE2.md` |
+| 3 | Moderne, herbouwbare images (Ubuntu 26.04 LTS + Python 3, nutsh v2.0.0, eigen namespace, #26 ssh-keys) + `\|failed`-contentfix vervroegd | ✅ `docs/FASE3.md` |
+| 4 | nutsh test-mode-regressie (nieuw, fase-3-bevinding) + interactieve bugs (#12/#22/#25/#37) + T5-unittests | ⬜ |
 | 5 | Ansible-content modernisering (`\|failed`→`is failed`), idempotentie (T7), apache-service (T3), lesson 14 Jenkins (#32/#39) | ⬜ |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
@@ -82,23 +82,23 @@ Statuskolom = doelfase waarin het issue groen wordt.
 
 | Issue | Component | Aanpak | Doelfase |
 |---|---|---|---|
-| #33 | `tutorial.sh` podman-incompatibel (`--format`, fping) | Portabele inspect + runtime-agnostisch | **2** |
-| #26 | SSH ssh-rsa key-deprecatie | ed25519-sleutels + moderne sshd_config | 3 |
-| #37 | nutsh: `sh` → panic (tokenizer) | v2.0.0 pinnen of nutsh forken | 4 |
-| #22 | nutsh: kan niet typen in prompt | idem | 4 |
-| #25 | nutsh: menu mist op WSL | idem (handmatige check) | 4 |
-| #12 | nutsh: geen prompt na menu | idem | 4 |
+| #33 | `tutorial.sh` podman-incompatibel (`--format`, fping) | Portabele inspect + runtime-agnostisch | ✅ **2** |
+| #26 | SSH ssh-rsa key-deprecatie | ed25519-sleutels | ✅ **3** |
+| **`\|failed`** | Content: `when: result\|failed` verwijderd in Ansible 2.9+ | → `when: result is failed` (6 bestanden + lestekst) | ✅ **3** (vervroegd uit 5) |
+| 🆕 | nutsh v2.0.0: `nutsh test` paniekt op 13/15 lessen (`Expect was not reached`) | nutsh forken/patchen (test-mode-interpreter) | 4 |
+| #37 | nutsh: `sh` → panic (tokenizer) | **Al bevestigd gefixt** op v2.0.0 interactief (T4 groen); geen actie nodig tenzij CI anders toont | 4 (verificatie) |
+| #22 | nutsh: kan niet typen in prompt | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
+| #25 | nutsh: menu mist op WSL | handmatige check, nog niet geverifieerd | 4 |
+| #12 | nutsh: geen prompt na menu | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
 | #32 | Les 14: `geerlingguy.java`-dep mist | requirements.yml + role-pin | 5 |
 | #39 | Les 14: dode Jenkins-repo-URLs | role bijwerken/pinnen | 5 |
 | — | T7: apache `command:`-taken niet idempotent | `changed_when`/`creates=` | 5 |
 | — | T3: apache-service start niet in les 5 | `service: state=started` in step-4 | 5 |
-| **`\|failed`** | Content: `when: result\|failed` verwijderd in Ansible 2.9+ | → `when: result is failed` (6 bestanden + lestekst) | 5 |
 | #41 | Sessiepersistentie | — | buiten scope |
 
-> **Let op — `when: result\|failed`:** niet een van de 9 originele issues, maar
-> een harde parse/eval-breuk op élke moderne Ansible. Zodra fase 3 een moderne
-> ansible-core pint, moet deze fase-5-fix meekomen (of naar voren getrokken),
-> anders breken lessen 9–13.
-
 De fase-0-tabel in `docs/BASELINE.md` markeerde #12/#22/#37 als "rood op 1.1";
-`docs/FASE1.md` weerlegt dat (T4 groen op 1.1). Deze §6-tabel is de actuele stand.
+`docs/FASE1.md` weerlegt dat (T4 groen op 1.1); `docs/FASE3.md` bevestigt
+dezelfde drie nu ook groen op v2.0.0 — interactief. nutsh's **test-mode**
+(`nutsh test`, apart van interactief) heeft op v2.0.0 een eigen, nieuw
+ontdekte regressie (zie 🆕 hierboven) die T1/T3/T7 in CI blokkeert; dat is nu
+de hoofdtaak van fase 4, naast het bevestigen van #25 en het toevoegen van T5.

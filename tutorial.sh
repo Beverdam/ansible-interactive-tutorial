@@ -28,9 +28,15 @@ EXTRA_PORTS=( "8080" "30000" "443" )
 # |   host2   | EXTRA_PORTS[2] | $HOSTPORT_BASE+5  |
 # +-----------+----------------+-------------------+
 
-DOCKER_IMAGETAG=${DOCKER_IMAGETAG:-1.1}
-DOCKER_HOST_IMAGE="turkenh/ubuntu-1604-ansible-docker-host:${DOCKER_IMAGETAG}"
-TUTORIAL_IMAGE="turkenh/ansible-tutorial:${DOCKER_IMAGETAG}"
+# As of fase 3, images are built locally from images/ (see images/Makefile)
+# rather than pulled from turkenh's Docker Hub namespace: those `:1.1` tags
+# are on a 5-year-stale ubuntu:16.04 base whose apt mirrors are archived, so
+# they can no longer be rebuilt. `make build_all` in images/ produces these
+# tags locally; override DOCKER_IMAGETAG/*_IMAGE to point elsewhere (e.g. a
+# pushed registry image) if you're not building locally.
+DOCKER_IMAGETAG=${DOCKER_IMAGETAG:-2.0}
+DOCKER_HOST_IMAGE="${DOCKER_HOST_IMAGE:-beverdam/ansible-managed-host:${DOCKER_IMAGETAG}}"
+TUTORIAL_IMAGE="${TUTORIAL_IMAGE:-beverdam/ansible-tutorial:${DOCKER_IMAGETAG}}"
 
 # Container runtime. Honor an explicit override, otherwise default to the
 # `docker` command -- a podman-docker shim on PATH also answers to `docker`,
