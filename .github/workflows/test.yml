@@ -169,18 +169,16 @@ jobs:
 
   t6-podman:
     runs-on: ubuntu-latest
-    # #33's core bug is FIXED in fase 2 (setupFiles() portable inspect).
-    # `make -C images build_all` itself was failing here though: GitHub's
-    # runner had no /etc/subuid//etc/subgid range for "beverdam" -- because
-    # images/Makefile's `USER=beverdam` variable was shadowing the real
-    # $USER environment variable for every command make ran (GNU Make
-    # re-exports environment-inherited variables to child processes even
-    # after a Makefile reassigns them), so rootless podman's subuid lookup
-    # queried the wrong name. Fixed in fase 6 (Makefile: USER ->
-    # IMAGE_NAMESPACE). Kept `continue-on-error` for one more run to let
-    # GitHub's runner confirm before making this blocking. See
-    # docs/FASE6.md.
-    continue-on-error: true
+    # Blocking as of fase 6: #33's core bug was fixed in fase 2
+    # (setupFiles() portable inspect); the remaining `make -C images
+    # build_all` failure (GitHub's runner had no /etc/subuid//etc/subgid
+    # range for "beverdam", because images/Makefile's `USER=beverdam`
+    # variable was shadowing the real $USER environment variable rootless
+    # podman's subuid lookup reads) was fixed by renaming that Makefile
+    # variable to IMAGE_NAMESPACE. Confirmed green on GitHub's own runner
+    # after the fix (this job can't be verified locally -- podman build
+    # hangs in this dev sandbox's nested networking, see docs/FASE3.md).
+    # See docs/FASE6.md.
     steps:
       - uses: actions/checkout@v4
       - name: install podman
