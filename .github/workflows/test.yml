@@ -128,14 +128,21 @@ jobs:
         # finding). Verified locally and on GitHub's runners -- HTTP 200.
         run: ./tests/t3_checkpoints.sh apache
       - name: jenkins checkpoint (lesson 14)
-        # Expected-fail on content grounds -- #32/#39. Fase 6 fixed two
-        # real bugs here (openjdk-25-jdk doesn't exist as a package on
-        # Ubuntu 26, host0's apt cache was never updated before this
-        # lesson) and got much further, but hit a hard blocker: the role's
-        # "Immediately restart Jenkins on init config changes" handler
-        # calls the `systemd:` module directly with daemon_reload: true,
-        # which needs a real systemd D-Bus connection our containers don't
-        # have. See docs/FASE6.md.
+        # Permanently expected-fail -- #32/#39. Fase 6 fixed two real bugs
+        # here (openjdk-25-jdk doesn't exist as a package on Ubuntu 26,
+        # host0's apt cache was never updated before this lesson) and got
+        # much further. Fase 7 then confirmed *no* released
+        # geerlingguy.jenkins version works on our containers: versions
+        # before 5.0.0 need the `apt-key` binary, which Ubuntu 26.04 has
+        # removed entirely; 5.0.0+ calls the `systemd:` module directly
+        # and unconditionally (needs a real systemd D-Bus connection our
+        # init-less containers don't have) -- and the apt-key fix landed
+        # *after* the systemd switch upstream, so there's no overlapping
+        # safe version. Fixing this for real means running actual systemd
+        # in the managed-host containers, a project-wide architecture
+        # change; the project owner decided against that (fase 7) --
+        # Jenkins stays a documented, accepted limitation. See
+        # docs/FASE7.md.
         continue-on-error: true
         run: ./tests/t3_checkpoints.sh jenkins
 
