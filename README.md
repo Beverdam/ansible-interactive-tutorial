@@ -6,15 +6,16 @@ Interactive tutorials for Ansible
 
 ## Prerequisite
 
-Only prerequisite is **docker**
-
-Requires docker version 1.9+ and tested with 1.12+
+Only prerequisite is **docker** (podman also works, see `tests/podman-shim/`).
 
 If you don't have docker installed, you can also run on http://play-with-docker.com (just click "+ ADD NEW INSTANCE" button and clone this repo there)
 
 ## How to Run
 
+Images are built locally from source (see [Modernization](#modernization) below) rather than pulled from Docker Hub, so build them once first:
+
 ```bash
+make -C images build_all
 ./tutorial.sh
 ```
 
@@ -59,7 +60,7 @@ You can run each lesson individually but it is **highly encouraged to follow the
 
 **ansible.tutorial** is an alpine based tutorial container in which ansible and [nutsh](https://github.com/turkenh/nutsh) (a framework for creating interactive command line tutorials) are available.
 
-**host0.example.org**, **host1.example.org** and **host2.example.org** are the Ubuntu 16.04 based containers that act as ansible nodes. These nodes were already provisioned with the ssh key of **ansible.tutorial** container. So that you don't have to deal with setting up keys.
+**host0.example.org**, **host1.example.org** and **host2.example.org** are the Ubuntu 26.04 LTS based containers that act as ansible nodes. These nodes were already provisioned with the ssh key of **ansible.tutorial** container. So that you don't have to deal with setting up keys.
 
 ### Port Mapping
 
@@ -83,6 +84,12 @@ HOSTPORT_BASE=<some_other_value> ./tutorial.sh
 
 ### Workspace Directory
 `ansible-interactive-tutorial/workspace` directory on your local machine is mounted as `/root/workspace` inside the **ansible.tutorial** container. So, you can use your favorite editor on your local machine to edit files. Editing files is not necessary to follow the lessons though.
+
+## Modernization
+
+This fork ([`Beverdam/ansible-interactive-tutorial`](https://github.com/Beverdam/ansible-interactive-tutorial)) modernizes the ~5-year-stale upstream project: images are rebuilt on a current base (Ubuntu 26.04 LTS, pinned ansible-core), `tutorial.sh` works with both docker and podman, and the automated test suite drives lessons directly instead of relying on the tutorial engine's own (buggy) test mode. See [`PLAN.md`](PLAN.md) for the full plan and issue tracking, and `docs/FASE*.md` for a detailed log of what changed and why in each phase.
+
+**Known limitation:** Lesson 14 (Jenkins via Ansible Galaxy) installs and configures correctly but the Jenkins service itself won't start — no released version of the `geerlingguy.jenkins` role works on our init-less containers (older versions need the `apt-key` binary, which modern Ubuntu has removed; newer versions require a real systemd D-Bus connection). Fixing this for real would mean running actual systemd in the containers, a project-wide architecture change; accepted as a documented limitation instead. See `docs/FASE7.md`.
 
 
 
