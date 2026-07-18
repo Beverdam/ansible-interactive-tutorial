@@ -25,7 +25,8 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 2 | `tutorial.sh` hardening (`set -euo pipefail`, quoting) + podman-support (#33) + dit PLAN.md | ✅ `docs/FASE2.md` |
 | 3 | Moderne, herbouwbare images (Ubuntu 26.04 LTS + Python 3, nutsh v2.0.0, eigen namespace, #26 ssh-keys) + `\|failed`-contentfix vervroegd | ✅ `docs/FASE3.md` |
 | 4 | nutsh test-mode vervangen door eigen driver (T1/T3/T7); 4 verborgen bugs blootgelegd en gefixt; #12/#22/#37 herbevestigd groen (interactief) | ✅ `docs/FASE4.md` |
-| 5 | Idempotentie (T7 `changed_when`), lesson 14 Jenkins (#32/#39, nu preciezer gediagnosticeerd) | ⬜ |
+| 5 | T7-idempotentie + T3-apache-service: compleet & geverifieerd. Jenkins (#32/#39): dieper gediagnosticeerd (root cause: role forceert systemd-module), niet gefixt | ✅ `docs/FASE5.md` |
+| 6 | Lesson 14/Jenkins volledig oplossen (role-versie pinnen of `systemctl` uit managed-host image); `t6-podman` subuid/subgid op CI-runner; #25 WSL-check | ⬜ |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd
@@ -90,10 +91,10 @@ Statuskolom = doelfase waarin het issue groen wordt.
 | #22 | nutsh: kan niet typen in prompt | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
 | #25 | nutsh: menu mist op WSL | handmatige check, nog niet geverifieerd | 4 |
 | #12 | nutsh: geen prompt na menu | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
-| #32 | Les 14: `geerlingguy.java`-dep mist | requirements.yml + role-pin | 5 |
-| #39 | Les 14: dode Jenkins-repo-URLs | role bijwerken/pinnen | 5 |
-| — | T7: apache `command:`-taken niet idempotent | `changed_when`/`creates=` | 5 |
-| — | T3: apache-service start niet in les 5 | `service: state=started` in step-4 | 5 |
+| #32 | Les 14: `geerlingguy.java`-dep mist | Lijkt inmiddels aanwezig; échte blocker is een dieperliggende service-module/systemd-routing-bug (zie `docs/FASE5.md`) — role-versie pinnen | 6 |
+| #39 | Les 14: dode Jenkins-repo-URLs | Nog niet apart geverifieerd (gemaskeerd door #32's diepere issue) | 6 |
+| — | T7: apache `command:`-taken niet idempotent | `changed_when`/`creates=`/`removes=` | ✅ **5** |
+| — | T3: apache-service start niet in les 5 | `service: state=started` in step-4 | ✅ **5** |
 | #41 | Sessiepersistentie | — | buiten scope |
 
 De fase-0-tabel in `docs/BASELINE.md` markeerde #12/#22/#37 als "rood op 1.1";

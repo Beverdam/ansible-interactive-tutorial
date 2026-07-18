@@ -14,19 +14,20 @@
           copy: src=files/awesome-app dest=/etc/apache2/sites-available/awesome-app.conf mode=0640
 
         - name: Activates our virtualhost
-          command: a2ensite awesome-app
+          command: a2ensite awesome-app creates=/etc/apache2/sites-enabled/awesome-app.conf
 
         - name: Check that our config is valid
           command: apache2ctl configtest
           register: result
           ignore_errors: True
+          changed_when: false
 
         - name: Rolling back - Restoring old default virtualhost
-          command: a2ensite 000-default
+          command: a2ensite 000-default creates=/etc/apache2/sites-enabled/000-default.conf
           when: result is failed
 
         - name: Rolling back - Removing our virtualhost
-          command: a2dissite awesome-app
+          command: a2dissite awesome-app removes=/etc/apache2/sites-enabled/awesome-app.conf
           when: result is failed
 
         - name: Rolling back - Ending playbook
@@ -38,10 +39,10 @@
           tags: deploy
 
         - name: Deactivates the default virtualhost
-          command: a2dissite 000-default
+          command: a2dissite 000-default removes=/etc/apache2/sites-enabled/000-default.conf
 
         - name: Deactivates the default ssl virtualhost
-          command: a2dissite default-ssl
+          command: a2dissite default-ssl removes=/etc/apache2/sites-enabled/default-ssl.conf
           notify:
             - restart apache
 

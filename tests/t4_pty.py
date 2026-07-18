@@ -108,9 +108,15 @@ def main():
         # The prompt is drawn as "~/workspace $ " wrapped in ANSI color
         # codes (which continue past the "$"), so anchoring on end-of-buffer
         # is unreliable -- match the literal prompt text instead.
+        #
+        # Fase 5: bumped 20s -> 45s after a GitHub Actions run failed here
+        # with no code change anywhere on this test's execution path (the
+        # ansible-tutorial image and this file were byte-identical to the
+        # immediately preceding run, which passed) -- shared-runner PTY/
+        # container-startup variance, not a functional regression.
         if not check(
             "shell prompt appears after selecting a lesson (#12)",
-            session.read_until(r"workspace \$", timeout=20),
+            session.read_until(r"workspace \$", timeout=45),
         ):
             failures += 1
 

@@ -2,3 +2,6 @@
       tasks:
         - name: Installs apache web server
           apt: pkg=apache2 state=present update_cache=true
+
+        - name: Starts apache web server
+          service: name=apache2 state=started
