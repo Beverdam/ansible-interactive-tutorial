@@ -26,7 +26,8 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 3 | Moderne, herbouwbare images (Ubuntu 26.04 LTS + Python 3, nutsh v2.0.0, eigen namespace, #26 ssh-keys) + `\|failed`-contentfix vervroegd | ✅ `docs/FASE3.md` |
 | 4 | nutsh test-mode vervangen door eigen driver (T1/T3/T7); 4 verborgen bugs blootgelegd en gefixt; #12/#22/#37 herbevestigd groen (interactief) | ✅ `docs/FASE4.md` |
 | 5 | T7-idempotentie + T3-apache-service: compleet & geverifieerd. Jenkins (#32/#39): dieper gediagnosticeerd (root cause: role forceert systemd-module), niet gefixt | ✅ `docs/FASE5.md` |
-| 6 | Lesson 14/Jenkins volledig oplossen (role-versie pinnen of `systemctl` uit managed-host image); `t6-podman` subuid/subgid op CI-runner; #25 WSL-check | ⬜ |
+| 6 | `t6-podman` root cause gefixt (Makefile `$USER`-shadowing). Jenkins: 2 bugs gefixt (java-versie, apt-cache-timing), 1 harde blocker vastgesteld (role vereist echte systemd, `daemon_reload:` hardgecodeerd) | ✅ `docs/FASE6.md` |
+| 7 | Jenkins volledig oplossen (systemd in container, of oudere role-pin) — apart te plannen; #25 WSL-check | ⬜ |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd
@@ -89,10 +90,12 @@ Statuskolom = doelfase waarin het issue groen wordt.
 | 🆕 | nutsh v2.0.0: `nutsh test` paniekt op 13/15 lessen (`Expect was not reached`) | nutsh forken/patchen (test-mode-interpreter) | 4 |
 | #37 | nutsh: `sh` → panic (tokenizer) | **Al bevestigd gefixt** op v2.0.0 interactief (T4 groen); geen actie nodig tenzij CI anders toont | 4 (verificatie) |
 | #22 | nutsh: kan niet typen in prompt | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
-| #25 | nutsh: menu mist op WSL | handmatige check, nog niet geverifieerd | 4 |
+| #25 | nutsh: menu mist op WSL | handmatige check, nog niet geverifieerd | 7 |
 | #12 | nutsh: geen prompt na menu | idem — al groen op v2.0.0 interactief | 4 (verificatie) |
-| #32 | Les 14: `geerlingguy.java`-dep mist | Lijkt inmiddels aanwezig; échte blocker is een dieperliggende service-module/systemd-routing-bug (zie `docs/FASE5.md`) — role-versie pinnen | 6 |
-| #39 | Les 14: dode Jenkins-repo-URLs | Nog niet apart geverifieerd (gemaskeerd door #32's diepere issue) | 6 |
+| — | `t6-podman`: podman rootless build faalt op GitHub | Makefile `USER=` botste met shell's `$USER` (subuid/subgid-lookup) → hernoemd naar `IMAGE_NAMESPACE` | ✅ **6** |
+| 🆕 | Les 14: `openjdk-25-jdk` bestaat niet als los pakket op Ubuntu 26.04 | `java_packages: [openjdk-21-jdk]` override in jenkins.yaml | ✅ **6** |
+| 🆕 | Les 14: host0 nooit ge-`apt update`-t vóór deze les | `pre_tasks:` met `apt: update_cache=true` (let op: niet `tasks:`, roles draaien vóór tasks) | ✅ **6** |
+| #32/#39 | Les 14: harde blocker — role's `daemon_reload:` roept `systemd:` hardgecodeerd aan, vereist échte systemd (D-Bus) | Systemd in container draaien (architectuurwijziging) of oudere role-versie pinnen | 7 |
 | — | T7: apache `command:`-taken niet idempotent | `changed_when`/`creates=`/`removes=` | ✅ **5** |
 | — | T3: apache-service start niet in les 5 | `service: state=started` in step-4 | ✅ **5** |
 | #41 | Sessiepersistentie | — | buiten scope |
