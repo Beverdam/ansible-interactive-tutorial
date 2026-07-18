@@ -247,11 +247,11 @@ mkdir -p roles/haproxy/{tasks,handlers,templates}\n\t
 
 "But, we have another option which is using `ansible-galaxy`. Let's do it so:"
 
-"*ansible-galaxy --offline init roles/haproxy*"
+"*ansible-galaxy role init --offline roles/haproxy*"
 
 prompt {
-    if success && command == "ansible-galaxy --offline init roles/haproxy" {
-        expect ("ansible-galaxy --offline init roles/haproxy")
+    if success && command == "ansible-galaxy role init --offline roles/haproxy" {
+        expect ("ansible-galaxy role init --offline roles/haproxy")
         ""
         "You can check the directory structure with `ls -la roles/haproxy`."
         break

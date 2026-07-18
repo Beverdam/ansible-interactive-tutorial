@@ -27,16 +27,31 @@ on:
 # their exact behaviour (see the `result is failed` fix below). See
 # docs/FASE3.md.
 #
-# Fase 3 ALSO surfaced a new nutsh v2.0.0 regression: `nutsh test` (used by
-# T1, and by T3/T7 via `run_tutorial -t`) panics ("Expect was not reached")
-# on almost every lesson, even though the command visibly ran and matched.
-# Interactive mode is unaffected -- T4 (a real PTY session, what an actual
-# user experiences) is fully green on v2.0.0, including #12/#22/#37. This is
-# a nutsh test-mode interpreter bug, not a tutorial-content bug; fixing it
-# means patching/forking nutsh, which is fase-4 scope. Until then, T1/T3/T7
-# are widely `continue-on-error` for this new reason (not the fase-0/1
-# reasons, which the panic now masks). See docs/FASE3.md for the full
-# per-lesson inventory.
+# Fase 3 ALSO surfaced a nutsh v2.0.0 regression: `nutsh test` panics
+# ("Expect was not reached") on almost every lesson, even though the
+# command visibly ran and matched -- a race condition in nutsh's own PTY
+# tokenizer (confirmed by reading nutsh's source), not a tutorial-content
+# bug. Interactive mode is unaffected -- T4 (a real PTY session, what an
+# actual user experiences) is fully green on v2.0.0, including #12/#22/#37.
+#
+# Fase 4 (this change): rather than fork/patch nutsh's Go internals (a
+# large, indefinite maintenance commitment for a bug in someone else's PTY
+# state machine), T1/T3/T7 now drive each lesson's real command sequence
+# directly via tests/t1_lessons.py -- extracted straight from the `.nutsh`
+# source's own `expect(...)` commands, executed for real via `docker exec`,
+# bypassing nutsh's test-mode interpreter entirely. This gives HONEST
+# signal where nutsh's testmode gave none (it panicked before reaching real
+# problems): T1 itself is 14 of 15 lessons genuinely verified green
+# end-to-end (only 13-step-13/Jenkins red, the already-tracked #32/#39, now
+# diagnosed more precisely). T3/T7 still show their own pre-existing,
+# already-documented content findings now that the panic no longer masks
+# them (T3 apache: service never started, fase-1 finding; T7: apache
+# `command:` tasks aren't idempotent, fase-0 finding) -- both fase-5 work.
+# docs/FASE4.md documents 3 real image/infra bugs (missing iproute2, a
+# PID-1-naming collision with ansible's service-manager detection, a
+# template missing a trailing newline) and 1 content bug (outdated
+# `ansible-galaxy` CLI syntax) that nutsh's panic had been masking since
+# fase 0, all fixed in this change.
 
 jobs:
   lint:
@@ -82,21 +97,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: build images
         run: make -C images build_all
-      - name: nutsh test -- ${{ matrix.lesson }}
-        # Verified locally (fase 3): only 3-step-03 and 14-freeplay pass
-        # under nutsh v2.0.0's test mode -- every other lesson hits the
-        # "Expect was not reached" panic (see header comment). 13-step-13 is
-        # additionally expected-fail on content grounds too (#32/#39).
-        continue-on-error: ${{ !contains(fromJSON('["3-step-03","14-freeplay"]'), matrix.lesson) }}
-        env:
-          LESSON_NAME: ${{ matrix.lesson }}
-        # `script` gives `docker run -it` (tutorial.sh) a real pty -- a
-        # bare `run:` step has none, and real Docker (unlike podman) hard
-        # fails client-side on `-it` without one. See tests/lib.sh.
-        run: script -qe -c "./tutorial.sh -t" /dev/null
+      - name: start environment
+        run: ./tests/env.sh up
+      - name: t1 -- ${{ matrix.lesson }}
+        # Verified locally (fase 4) on a fully fresh environment: 14 of 15
+        # lessons pass end-to-end via tests/t1_lessons.py. Only 13-step-13
+        # (Jenkins) is expected-fail, on content grounds (#32/#39) -- see
+        # docs/FASE4.md for the precise diagnosis.
+        continue-on-error: ${{ matrix.lesson == '13-step-13' }}
+        run: python3 tests/t1_lessons.py ${{ matrix.lesson }}
       - name: cleanup
         if: always()
-        run: ./tutorial.sh --remove
+        run: ./tests/env.sh down
 
   t2-lifecycle:
     runs-on: ubuntu-latest
@@ -111,31 +123,32 @@ jobs:
       - name: build images
         run: make -C images build_all
       - name: apache checkpoint (lesson 5)
-        # Now fails earlier than its originally-tracked issue: `run_tutorial
-        # -t` for 4-step-04 hits the nutsh v2.0.0 test-mode panic (see
-        # workflow header) before the playbook even completes, masking the
-        # previously-documented apache-service-not-started finding
-        # (files/step-4/apache.yml never starts apache2). Both are fase-4/5
-        # work. See docs/FASE3.md.
+        # Still expected-fail (verified locally, fase 4) -- but no longer
+        # for the nutsh test-mode panic. The pre-existing fase-1 finding is
+        # confirmed the real cause with honest signal now:
+        # files/step-4/apache.yml installs apache2 but never explicitly
+        # starts it (no `service: state=started` task, and this image's
+        # /start.sh runs no init that would auto-start it as a side effect
+        # of `apt install`). Fix is fase 5 (docs/FASE1.md/BASELINE.md).
         continue-on-error: true
         run: ./tests/t3_checkpoints.sh apache
       - name: jenkins checkpoint (lesson 14)
-        # Same v2.0.0 test-mode panic, plus the pre-existing #32/#39 content
-        # issue -- doubly expected-fail.
+        # Expected-fail on content grounds -- #32/#39, see docs/FASE4.md for
+        # the precise diagnosis (gets much further than before, fails on
+        # starting the jenkins service itself).
         continue-on-error: true
         run: ./tests/t3_checkpoints.sh jenkins
 
   t7-idempotency:
     runs-on: ubuntu-latest
-    # Expected red, now for two stacked reasons: (1) every scoped lesson
-    # runs via `run_tutorial -t`, which hits the nutsh v2.0.0 test-mode
-    # panic (see workflow header) before convergence can even be measured;
-    # (2) the pre-existing content issue -- apache playbooks use `command:`
-    # tasks (a2ensite/a2dissite/apache2ctl configtest) with no
-    # `changed_when`, so ansible reports `changed` every run regardless of
-    # actual state. haproxy-only and the two simplest apache lessons are
-    # genuinely idempotent already. Fix for (2) is fase 5 work; (1) is
-    # fase 4. See docs/BASELINE.md and docs/FASE3.md.
+    # Expected partially red: the apache playbooks use `command:` tasks
+    # (a2ensite/a2dissite/apache2ctl configtest) with no `changed_when`, so
+    # ansible reports `changed` every run regardless of actual state.
+    # haproxy-only and the two simplest apache lessons are genuinely
+    # idempotent already (verified locally, fase 4, now that
+    # t7_idempotency.sh drives lessons via tests/t1_lessons.py instead of
+    # nutsh test mode). Fix is fase 5 work. See docs/BASELINE.md and
+    # docs/FASE4.md.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -191,12 +204,15 @@ jobs:
         run: make -C images build_all
       - run: ./tutorial.sh --remove
       - name: t1 smoke (lesson 0)
-        # 0-step-00 is in the nutsh v2.0.0 test-mode-panic set (see workflow
-        # header) -- expected-fail here independent of podman.
-        continue-on-error: true
-        env:
-          LESSON_NAME: 0-step-00
-        run: script -qe -c "./tutorial.sh -t" /dev/null
+        # tests/t1_lessons.py drives lessons via `docker exec`, which
+        # resolves through the podman shim on PATH exactly like every other
+        # `docker` call in this job -- same as the fase-4 replacement in the
+        # t1-lessons job, just not run as a full matrix here (this job is
+        # about podman compat, not lesson coverage).
+        run: |
+          ./tests/env.sh up
+          python3 tests/t1_lessons.py 0-step-00
+          ./tests/env.sh down
       - run: ./tests/t2_lifecycle.sh
       - run: ./tests/env.sh up
       - run: python3 tests/t4_pty.py
