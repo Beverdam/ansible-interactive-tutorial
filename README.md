@@ -6,18 +6,17 @@ Interactive tutorials for Ansible
 
 ## Prerequisite
 
-Only prerequisite is **docker** (podman also works, see `tests/podman-shim/`).
+**docker** and **make** (podman also works instead of docker, see `tests/podman-shim/`).
 
 If you don't have docker installed, you can also run on http://play-with-docker.com (just click "+ ADD NEW INSTANCE" button and clone this repo there)
 
 ## How to Run
 
-Images are built locally from source (see [Modernization](#modernization) below) rather than pulled from Docker Hub, so build them once first:
-
 ```bash
-make -C images build_all
 ./tutorial.sh
 ```
+
+Images are built locally from source (see [Modernization](#modernization) below) rather than pulled from Docker Hub. The first run builds them automatically -- that takes a few minutes; every run after that is instant. To build them yourself ahead of time (or rebuild after changing a Dockerfile), run `make -C images build_all`.
 
 [![demo](https://asciinema.org/a/CPUhOGGlcLiXVlZKIuiuk5Q7f.png)](https://asciinema.org/a/CPUhOGGlcLiXVlZKIuiuk5Q7f?autoplay=1)
 
