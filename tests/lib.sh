@@ -70,10 +70,16 @@ start_environment() {
     # same user's later run) with a permission error on a multi-user
     # machine.
     ( run_tutorial </dev/null >"/tmp/tutorial-start.$$.log" 2>&1 & )
-    wait_for 60 "ansible.tutorial container running" container_running ansible.tutorial
-    wait_for 60 "host0.example.org running" container_running host0.example.org
-    wait_for 60 "host1.example.org running" container_running host1.example.org
-    wait_for 60 "host2.example.org running" container_running host2.example.org
+    # 180s, not 60s: on a slow/loaded shared CI runner the first run also
+    # builds the images (fase 8 auto-build) and pulls the ubuntu:26.04 /
+    # nutsh base layers, which blew past 60s and failed t1 (5-step-05) with
+    # "timed out waiting for: ansible.tutorial container running". wait_for
+    # returns the instant the condition holds, so a generous ceiling costs
+    # nothing when the runner is fast.
+    wait_for 180 "ansible.tutorial container running" container_running ansible.tutorial
+    wait_for 180 "host0.example.org running" container_running host0.example.org
+    wait_for 180 "host1.example.org running" container_running host1.example.org
+    wait_for 180 "host2.example.org running" container_running host2.example.org
 }
 
 stop_environment() {
