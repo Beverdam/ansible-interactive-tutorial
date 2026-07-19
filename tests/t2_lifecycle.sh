@@ -59,7 +59,9 @@ before_id=$(docker inspect -f '{{.Id}}' host0.example.org)
 docker kill ansible.tutorial >/dev/null 2>&1
 docker rm ansible.tutorial >/dev/null 2>&1
 ( run_tutorial </dev/null >"/tmp/tutorial-restart.$$.log" 2>&1 & )
-wait_for 60 "ansible.tutorial running again" container_running ansible.tutorial
+# 180s to match start_environment's ceiling (see tests/lib.sh) -- a loaded
+# shared runner can be slow here too; wait_for exits as soon as it's up.
+wait_for 180 "ansible.tutorial running again" container_running ansible.tutorial
 after_id=$(docker inspect -f '{{.Id}}' host0.example.org)
 if [ "${before_id}" != "${after_id}" ]; then
     log "CHECK FAILED: host0.example.org was recreated instead of reused (${before_id} -> ${after_id})"

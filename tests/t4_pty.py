@@ -134,6 +134,19 @@ def main():
         # is unreliable -- match the literal prompt text instead.
         if not check("shell prompt appears after selecting a lesson (#12)", got_prompt):
             failures += 1
+            # This has failed intermittently on CI and never reproduced
+            # locally, so two guessed fixes (fixed delay, retry loop)
+            # couldn't be validated. Dump exactly what nutsh emitted so the
+            # next failing CI run yields the raw evidence instead of another
+            # guess -- the last chunk of the buffer shows whether the lesson
+            # actually started (it did, just no prompt matched), whether
+            # nutsh hung mid-menu, or whether something else entirely.
+            tail = session.buffer[-800:]
+            print(
+                f"T4 [DEBUG] #12 failed; last {len(tail)} chars of buffer:\n"
+                f"{tail!r}",
+                file=sys.stderr,
+            )
 
         session.buffer = ""
         session.send("ansible --version\n")
