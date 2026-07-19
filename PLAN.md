@@ -32,6 +32,7 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 9 | Test-suite `/tmp`-padcollisies gefixt (PID-uniek) — gevonden tijdens niet-root-verificatie | ✅ PR #10 (geen apart docs/FASE9.md, commit-message is de documentatie) |
 | 10 | T4-flakiness op CI (check #12) root-oorzaak gevonden in nutsh's eigen bron (print-vóór-input-setup-race); gefixt met settle-delay in eigen testcode, niet in nutsh | ✅ `docs/FASE10.md` |
 | 11 | README-review vond echte bug: `images/Makefile` had `docker` hardgecodeerd, negeerde `CONTAINER_ENGINE` — `CONTAINER_ENGINE=podman ./tutorial.sh` zou stuklopen op de auto-build-stap zonder een `docker`-commando. Gefixt + doorgegeven vanuit `tutorial.sh` | ✅ `docs/FASE11.md` |
+| 12 | Fase-10's T4-fix bleek onvoldoende (faling kwam terug op fase-11-run). Vaste vertraging vervangen door retry-loop; `t4-pty`/`t6-podman` eerlijk terug naar `continue-on-error` tot meerdere CI-runs het bevestigen | 🟡 `docs/FASE12.md` (mitigatie, nog niet bewezen) |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd
