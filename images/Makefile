@@ -11,6 +11,17 @@
 IMAGE_NAMESPACE=beverdam
 TAG=2.0
 
+# `?=` (not `=`): honors an already-set CONTAINER_ENGINE (e.g. passed in by
+# tutorial.sh's auto-build step, or exported by a podman user calling this
+# Makefile directly) while still defaulting sanely for a bare `make`.
+# Matches tutorial.sh's own CONTAINER_ENGINE pattern -- without this, the
+# `docker` calls below were hardcoded regardless of what a user configured
+# tutorial.sh to use, so `CONTAINER_ENGINE=podman ./tutorial.sh` on a
+# machine with no `docker` binary at all would fail here with "docker:
+# command not found" even though tutorial.sh's own commands honored podman
+# correctly.
+CONTAINER_ENGINE ?= docker
+
 # build_all (not `all`) is the default: it only builds, it never pushes.
 # The original default goal was `all` (build_all + push_all), so a bare
 # `make` attempted to push to turkenh's Docker Hub account -- which a fork
@@ -19,10 +30,10 @@ TAG=2.0
 .DEFAULT_GOAL := build_all
 
 build:
-	docker build -t $(IMAGE_NAMESPACE)/${IMAGE}:${TAG} -f ${IMAGE}/Dockerfile .
+	$(CONTAINER_ENGINE) build -t $(IMAGE_NAMESPACE)/${IMAGE}:${TAG} -f ${IMAGE}/Dockerfile .
 
 push:
-	docker push $(IMAGE_NAMESPACE)/${IMAGE}:${TAG}
+	$(CONTAINER_ENGINE) push $(IMAGE_NAMESPACE)/${IMAGE}:${TAG}
 
 build_and_push: build push
 

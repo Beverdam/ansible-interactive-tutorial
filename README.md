@@ -6,7 +6,7 @@ Interactive tutorials for Ansible
 
 ## Prerequisite
 
-**docker** and **make** (podman also works instead of docker, see `tests/podman-shim/`).
+**docker** and **make** (podman also works instead of docker: `CONTAINER_ENGINE=podman ./tutorial.sh`).
 
 If you don't have docker installed, you can also run on http://play-with-docker.com (just click "+ ADD NEW INSTANCE" button and clone this repo there)
 

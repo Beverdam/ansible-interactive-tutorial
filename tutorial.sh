@@ -68,7 +68,11 @@ function ensureImagesBuilt() {
         echo "Could not find 'make'. Install it, or build the images yourself: (cd images && make build_all)" >&2
         exit 1
     fi
-    make -C "${BASEDIR}/images" build_all
+    # Pass our resolved CONTAINER_ENGINE through explicitly -- it's a plain
+    # (non-exported) shell variable here, so `make` wouldn't otherwise see
+    # it, and images/Makefile's own build/push targets need it to build
+    # with the same engine tutorial.sh itself is about to use.
+    make -C "${BASEDIR}/images" build_all CONTAINER_ENGINE="${CONTAINER_ENGINE}"
 }
 
 function doesNetworkExist() {
