@@ -34,6 +34,7 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 11 | README-review vond echte bug: `images/Makefile` had `docker` hardgecodeerd, negeerde `CONTAINER_ENGINE` — `CONTAINER_ENGINE=podman ./tutorial.sh` zou stuklopen op de auto-build-stap zonder een `docker`-commando. Gefixt + doorgegeven vanuit `tutorial.sh` | ✅ `docs/FASE11.md` |
 | 12 | Fase-10's T4-fix bleek onvoldoende (faling kwam terug op fase-11-run). Vaste vertraging vervangen door retry-loop; `t4-pty`/`t6-podman` eerlijk terug naar `continue-on-error` tot meerdere CI-runs het bevestigen | 🟡 `docs/FASE12.md` (mitigatie, nog niet bewezen) |
 | 13 | Fase-12-run onthulde 2 losse oorzaken: (a) container-start `wait_for 60`→180 (echte fix voor `t1`-timeout op trage runner); (b) T4-#12 nog steeds onbegrepen — retry-loop faalde ook, `#22` slaagt wél → gestopt met gokken, debug-buffer-dump toegevoegd om echte oorzaak te vangen | 🟡 `docs/FASE13.md` (a gefixt, b verzamelt data) |
+| 14 | Debug-dump van een echte CI-faling loste T4-#12 op: prompt verscheen als `~ $`, test wilde `~/workspace $` — te strikte regex, géén nutsh-race. Generieke prompt-match; retry-loop weg; #22 gehard tegen valse pass op lestekst. `t4-pty`/`t6-podman` weer **blocking** (root cause bewezen, niet gegokt) | ✅ `docs/FASE14.md` |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd

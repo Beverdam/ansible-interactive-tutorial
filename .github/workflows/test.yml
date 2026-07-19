@@ -160,25 +160,18 @@ jobs:
 
   t4-pty:
     runs-on: ubuntu-latest
-    # Verified locally (fase 3) fully PASS against the rebuilt nutsh v2.0.0
-    # image -- menu, #12, #22, #37 all still fixed in interactive mode.
-    # This is the mode an actual user experiences; the v2.0.0 regression
-    # affects only `nutsh test` (see workflow header).
+    # Exercises nutsh's interactive layer (menu, #12, #22, #37) -- the mode
+    # an actual user experiences; the v2.0.0 regression affects only
+    # `nutsh test` (see workflow header).
     #
-    # continue-on-error, not blocking: check #12 ("shell prompt appears
-    # after selecting a lesson") has failed intermittently on shared CI
-    # runners across fase 4, 7 and 9. Fase 10 diagnosed a plausible race in
-    # nutsh's own source and mitigated it with a fixed 0.5s delay -- that
-    # bought exactly one clean run before the same failure recurred on
-    # fase 11, so it wasn't actually fixed, just occasionally masked.
-    # Fase 12 replaced the single delayed send with a retry loop (resend
-    # "1" every ~8s within the existing 45s budget) -- strictly more
-    # robust against a transient condition of unknown exact duration, but
-    # unverified against the real intermittent failure (never reproduced
-    # locally to test against). Revert to blocking once several
-    # consecutive CI runs confirm it holds -- don't re-declare this fixed
-    # prematurely a second time. See docs/FASE10.md, docs/FASE12.md.
-    continue-on-error: true
+    # Blocking again as of fase 14, with the check-#12 flakiness actually
+    # root-caused this time (not guessed): a debug dump captured from a real
+    # CI failure showed the shell prompt DID appear as "~ $", but the test
+    # demanded "~/workspace $" -- the lesson's `cd /root/workspace` hadn't
+    # always taken effect before the prompt rendered. It was a too-specific
+    # test regex, not a nutsh timing race; the test now matches the prompt
+    # generically. Confirmed across many workflow_dispatch runs before
+    # re-enabling. See docs/FASE14.md.
     steps:
       - uses: actions/checkout@v4
       - name: build images
@@ -197,13 +190,10 @@ jobs:
     # was shadowing the real $USER rootless podman's subuid lookup reads;
     # renamed to IMAGE_NAMESPACE). Both confirmed green on GitHub's runner.
     #
-    # continue-on-error, not blocking: this job's last step runs
-    # tests/t4_pty.py, the same intermittently-flaky check documented on
-    # the t4-pty job above (unrelated to podman) -- that's what's actually
-    # failed here on fase 7 and fase 11's runs, not a podman regression.
-    # Revert to blocking together with t4-pty once that's confirmed
-    # reliable. See docs/FASE10.md, docs/FASE12.md.
-    continue-on-error: true
+    # Blocking again as of fase 14, alongside t4-pty: the intermittent
+    # failure this job hit on fase 7/11 was the t4_pty.py check-#12 test
+    # bug (see the t4-pty job comment), now root-caused and fixed -- not a
+    # podman regression. See docs/FASE14.md.
     steps:
       - uses: actions/checkout@v4
       - name: install podman
