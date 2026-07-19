@@ -29,6 +29,8 @@ Uit scope: #41 (sessiepersistentie) — buiten fase 0–5.
 | 6 | `t6-podman` root cause gefixt (Makefile `$USER`-shadowing). Jenkins: 2 bugs gefixt (java-versie, apt-cache-timing), 1 harde blocker vastgesteld (role vereist echte systemd, `daemon_reload:` hardgecodeerd) | ✅ `docs/FASE6.md` |
 | 7 | Jenkins: definitief onderzocht — geen enkele rolversie werkt zonder systemd (oude versies: `apt-key` verwijderd uit Ubuntu 26.04; nieuwe versies: hardgecodeerd `systemd:`). **Besluit (eigenaar): geaccepteerde, gedocumenteerde beperking — geen systemd-architectuurwijziging.** #25 blijft handmatige check. | ✅ `docs/FASE7.md` |
 | 8 | UX: `tutorial.sh` bouwt images automatisch als ze ontbreken — geen aparte `make`-stap meer nodig voor onervaren gebruikers. README teruggezet naar alleen `./tutorial.sh` | ✅ `docs/FASE8.md` |
+| 9 | Test-suite `/tmp`-padcollisies gefixt (PID-uniek) — gevonden tijdens niet-root-verificatie | ✅ PR #10 (geen apart docs/FASE9.md, commit-message is de documentatie) |
+| 10 | T4-flakiness op CI (check #12) root-oorzaak gevonden in nutsh's eigen bron (print-vóór-input-setup-race); gefixt met settle-delay in eigen testcode, niet in nutsh | ✅ `docs/FASE10.md` |
 
 Elke fase: wijziging → review → smoke tests → `docs/FASEn.md` → commit (zie §4).
 De `continue-on-error: true`-annotaties in CI worden **per issue verwijderd

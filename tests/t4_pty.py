@@ -104,16 +104,28 @@ def main():
         if not check("menu appears on start", session.read_until(r"Please select a lesson")):
             failures += 1
 
+        # Fase 10: root-caused the intermittent failure below (hit fase 4,
+        # 7 and 9's CI runs, always at the full timeout -- never "almost
+        # there", meaning the "1" was never received at all, not just slow).
+        # nutsh's own source (model/model.go SelectLesson) prints "Please
+        # select a lesson: " and only *after* that starts reading input
+        # (`cli.GetInput()`) -- there's a real gap between the prompt text
+        # becoming visible and nutsh actually being ready to consume a
+        # keystroke. On this dev sandbox that gap is negligible (never
+        # reproduced across dozens of runs); on loaded shared CI runners
+        # it's apparently sometimes wide enough that "1\n", sent the
+        # instant the prompt text matches, arrives before nutsh starts
+        # reading and is silently dropped. (nutsh's own dsl.go has a
+        # `time.Sleep(500 * time.Millisecond)` before a comparable send
+        # elsewhere, suggesting upstream already hit a version of this.)
+        # Not nutsh's to patch (fase 4 decision) -- worked around here with
+        # a short settle delay before sending, which costs nothing when
+        # the race isn't in play and closes it when it is.
+        time.sleep(0.5)
         session.send("1\n")
         # The prompt is drawn as "~/workspace $ " wrapped in ANSI color
         # codes (which continue past the "$"), so anchoring on end-of-buffer
         # is unreliable -- match the literal prompt text instead.
-        #
-        # Fase 5: bumped 20s -> 45s after a GitHub Actions run failed here
-        # with no code change anywhere on this test's execution path (the
-        # ansible-tutorial image and this file were byte-identical to the
-        # immediately preceding run, which passed) -- shared-runner PTY/
-        # container-startup variance, not a functional regression.
         if not check(
             "shell prompt appears after selecting a lesson (#12)",
             session.read_until(r"workspace \$", timeout=45),
