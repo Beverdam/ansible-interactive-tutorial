@@ -104,32 +104,35 @@ def main():
         if not check("menu appears on start", session.read_until(r"Please select a lesson")):
             failures += 1
 
-        # Fase 10: root-caused the intermittent failure below (hit fase 4,
-        # 7 and 9's CI runs, always at the full timeout -- never "almost
-        # there", meaning the "1" was never received at all, not just slow).
-        # nutsh's own source (model/model.go SelectLesson) prints "Please
-        # select a lesson: " and only *after* that starts reading input
-        # (`cli.GetInput()`) -- there's a real gap between the prompt text
-        # becoming visible and nutsh actually being ready to consume a
-        # keystroke. On this dev sandbox that gap is negligible (never
-        # reproduced across dozens of runs); on loaded shared CI runners
-        # it's apparently sometimes wide enough that "1\n", sent the
-        # instant the prompt text matches, arrives before nutsh starts
-        # reading and is silently dropped. (nutsh's own dsl.go has a
-        # `time.Sleep(500 * time.Millisecond)` before a comparable send
-        # elsewhere, suggesting upstream already hit a version of this.)
-        # Not nutsh's to patch (fase 4 decision) -- worked around here with
-        # a short settle delay before sending, which costs nothing when
-        # the race isn't in play and closes it when it is.
-        time.sleep(0.5)
-        session.send("1\n")
+        # Fase 10 hypothesized a specific race (nutsh's SelectLesson prints
+        # the prompt before calling cli.GetInput() to start reading) and
+        # mitigated it with a single fixed 0.5s delay before sending "1".
+        # That measurably helped (one clean CI run) but did NOT reliably
+        # fix it -- the exact same failure recurred on fase 11's very next
+        # run, always at the full timeout, never partial. Whatever the
+        # precise mechanism (the fase-10 theory may be incomplete: pty
+        # input is normally kernel-buffered rather than dropped even if
+        # the reader isn't ready yet, which undercuts a pure "arrived too
+        # early" explanation), a *single* send clearly isn't robust against
+        # whatever transient condition this is on shared CI runners.
+        #
+        # Fase 12: resend "1\n" periodically instead of sending once and
+        # hoping. This is strictly more robust than guessing a delay,
+        # regardless of the true root cause -- any transient stall that
+        # clears up within the overall budget gets a fresh chance each
+        # attempt, at the cost of a harmless-if-unneeded repeat keystroke
+        # (nutsh's prompt loop just re-prompts on unrecognized input).
+        got_prompt = False
+        deadline = time.time() + 45
+        while time.time() < deadline:
+            session.send("1\n")
+            if session.read_until(r"workspace \$", timeout=8):
+                got_prompt = True
+                break
         # The prompt is drawn as "~/workspace $ " wrapped in ANSI color
         # codes (which continue past the "$"), so anchoring on end-of-buffer
         # is unreliable -- match the literal prompt text instead.
-        if not check(
-            "shell prompt appears after selecting a lesson (#12)",
-            session.read_until(r"workspace \$", timeout=45),
-        ):
+        if not check("shell prompt appears after selecting a lesson (#12)", got_prompt):
             failures += 1
 
         session.buffer = ""
