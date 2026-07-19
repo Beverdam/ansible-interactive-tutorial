@@ -58,7 +58,7 @@ log "T2: stop -> restart reuses host containers (#12 scenario)"
 before_id=$(docker inspect -f '{{.Id}}' host0.example.org)
 docker kill ansible.tutorial >/dev/null 2>&1
 docker rm ansible.tutorial >/dev/null 2>&1
-( run_tutorial </dev/null >/tmp/tutorial-restart.log 2>&1 & )
+( run_tutorial </dev/null >"/tmp/tutorial-restart.$$.log" 2>&1 & )
 wait_for 60 "ansible.tutorial running again" container_running ansible.tutorial
 after_id=$(docker inspect -f '{{.Id}}' host0.example.org)
 if [ "${before_id}" != "${after_id}" ]; then

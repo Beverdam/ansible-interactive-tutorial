@@ -65,7 +65,11 @@ run_tutorial() {
 # `docker exec` into it for scripted checks.
 start_environment() {
     "${LIB_BASEDIR}/tutorial.sh" --remove >/dev/null 2>&1 || true
-    ( run_tutorial </dev/null >/tmp/tutorial-start.log 2>&1 & )
+    # $$ (this shell's PID) keeps the path unique per run -- a fixed shared
+    # path lets one user's leftover file block another user's run (or the
+    # same user's later run) with a permission error on a multi-user
+    # machine.
+    ( run_tutorial </dev/null >"/tmp/tutorial-start.$$.log" 2>&1 & )
     wait_for 60 "ansible.tutorial container running" container_running ansible.tutorial
     wait_for 60 "host0.example.org running" container_running host0.example.org
     wait_for 60 "host1.example.org running" container_running host1.example.org

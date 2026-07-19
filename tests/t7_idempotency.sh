@@ -60,8 +60,13 @@ FAILED=0
 for entry in "${SCOPE[@]}"; do
     IFS='|' read -r label lesson cmd <<< "${entry}"
     log "T7 [${label}]: running lesson ${lesson} to converge state"
-    if ! python3 "${BASEDIR}/tests/t1_lessons.py" "${lesson}" >/tmp/t7-"${label}"-setup.log 2>&1; then
-        log "T7 [${label}]: SKIP -- lesson did not complete (see T1 / /tmp/t7-${label}-setup.log)"
+    # $$ keeps this unique per run of this script, not just per label --
+    # otherwise two concurrent runs (different users, or the same user
+    # twice) collide on the same path and one gets "Permission denied"
+    # writing over the other's file.
+    setup_log="/tmp/t7-${label}.$$.log"
+    if ! python3 "${BASEDIR}/tests/t1_lessons.py" "${lesson}" >"${setup_log}" 2>&1; then
+        log "T7 [${label}]: SKIP -- lesson did not complete (see T1 / ${setup_log})"
         continue
     fi
     log "T7 [${label}]: re-running '${cmd}' to check idempotency"
